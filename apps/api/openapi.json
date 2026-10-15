@@ -1,0 +1,3183 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/attachments": {
+      "post": {
+        "operationId": "AttachmentsController_upload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Upload an attachment for an owner object.",
+        "tags": [
+          "attachments"
+        ]
+      },
+      "get": {
+        "operationId": "AttachmentsController_list",
+        "parameters": [
+          {
+            "name": "ownerType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List attachments of an owner object.",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/attachments/{id}/download": {
+      "get": {
+        "operationId": "AttachmentsController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Download attachment content.",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/attachments/{id}": {
+      "delete": {
+        "operationId": "AttachmentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an attachment (content + metadata).",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "operationId": "AuditController_list",
+        "parameters": [
+          {
+            "name": "objectType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List audit history with filters and pagination.",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness probe; reports database connectivity.",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/items": {
+      "post": {
+        "operationId": "ItemsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create an internal Item.",
+        "tags": [
+          "items"
+        ]
+      },
+      "get": {
+        "operationId": "ItemsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List Items with search, archive filter, and pagination.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}": {
+      "get": {
+        "operationId": "ItemsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get an Item with variants and notes.",
+        "tags": [
+          "items"
+        ]
+      },
+      "patch": {
+        "operationId": "ItemsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update an Item; creates a new content version.",
+        "tags": [
+          "items"
+        ]
+      },
+      "delete": {
+        "operationId": "ItemsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Permanently delete an Item (audit recorded).",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/archive": {
+      "post": {
+        "operationId": "ItemsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Archive an Item.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/restore": {
+      "post": {
+        "operationId": "ItemsController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Restore an archived Item.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/variants": {
+      "post": {
+        "operationId": "ItemsController_createVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemVariantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a variant; a permanent Item Code is generated.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/variants/{variantId}": {
+      "patch": {
+        "operationId": "ItemsController_updateVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemVariantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a variant; creates a new content version.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/variants/{variantId}/archive": {
+      "post": {
+        "operationId": "ItemsController_archiveVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Archive a variant.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/notes": {
+      "post": {
+        "operationId": "ItemsController_addNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a Local Note to the Item.",
+        "tags": [
+          "items"
+        ]
+      },
+      "get": {
+        "operationId": "ItemsController_listNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List the Item notes.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/item-variants": {
+      "get": {
+        "operationId": "ItemVariantsController_search",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Search active item variants (for pickers); matches code, name, and item name.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/notes/{id}": {
+      "patch": {
+        "operationId": "NotesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Edit a note (requires notes:edit-all, or notes:edit-own for your own notes).",
+        "tags": [
+          "notes"
+        ]
+      },
+      "delete": {
+        "operationId": "NotesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a note.",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/v1/notes/owner/{ownerType}/{ownerId}": {
+      "get": {
+        "operationId": "OwnerNotesController_list",
+        "parameters": [
+          {
+            "name": "ownerType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List notes for a note-capable owner object.",
+        "tags": [
+          "notes"
+        ]
+      },
+      "post": {
+        "operationId": "OwnerNotesController_create",
+        "parameters": [
+          {
+            "name": "ownerType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a Local Note to a note-capable owner object.",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/v1/mapping/queue": {
+      "get": {
+        "operationId": "MappingController_queue",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Unmapped listing variants with affected order-line counts.",
+        "tags": [
+          "mapping"
+        ]
+      }
+    },
+    "/api/v1/mapping/resolve": {
+      "post": {
+        "operationId": "MappingController_resolve",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingResolveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Map a listing variant to an item variant and backfill unresolved lines.",
+        "tags": [
+          "mapping"
+        ]
+      }
+    },
+    "/api/v1/mapping/{listingVariantId}": {
+      "delete": {
+        "operationId": "MappingController_unbind",
+        "parameters": [
+          {
+            "name": "listingVariantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove the mapping of a listing variant.",
+        "tags": [
+          "mapping"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "operationId": "OrdersController_createManual",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManualOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a manual order (title-only lines allowed).",
+        "tags": [
+          "orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_list",
+        "parameters": [
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "external",
+                "manual"
+              ]
+            }
+          },
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List orders with filters, search, and pagination.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Order detail: lines, revisions, and notes.",
+        "tags": [
+          "orders"
+        ]
+      },
+      "patch": {
+        "operationId": "OrdersController_revise",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Internal revision: applies changes and records reason + before/after.",
+        "tags": [
+          "orders"
+        ]
+      },
+      "delete": {
+        "operationId": "OrdersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Permanently delete an archived order (reason in body).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/archive": {
+      "post": {
+        "operationId": "OrdersController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Archive an order (precondition for deletion).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/restore": {
+      "post": {
+        "operationId": "OrdersController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Restore an archived order.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/notes": {
+      "post": {
+        "operationId": "OrdersController_addNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a Local Note to the order.",
+        "tags": [
+          "orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_listNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List the order notes.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/related": {
+      "get": {
+        "operationId": "OrdersController_related",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Manually linked orders plus normalized-field suggestions (§17).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/links": {
+      "post": {
+        "operationId": "OrdersController_link",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderLinkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Manually link a related order.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/links/{linkId}": {
+      "delete": {
+        "operationId": "OrdersController_unlink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "linkId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a manual order link.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/review-queue": {
+      "get": {
+        "operationId": "ReviewController_list",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List pending review records (filter by type/store).",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/review-queue/{id}": {
+      "get": {
+        "operationId": "ReviewController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get one review record.",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/review-queue/{id}/approve": {
+      "post": {
+        "operationId": "ReviewController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Approve one pending record (per-type permission asserted in service).",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/review-queue/approve-batch": {
+      "post": {
+        "operationId": "ReviewController_approveBatch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Approve many pending records (per-record errors listed).",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/review-queue/{id}/reject": {
+      "post": {
+        "operationId": "ReviewController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Reject a pending record (kept, not re-queued for the same revision).",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/platform/simulate/inject-listing": {
+      "post": {
+        "operationId": "PlatformDevController_injectListing",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InjectListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Inject a brand-new listing on the simulated platform.",
+        "tags": [
+          "platform (simulated)"
+        ]
+      }
+    },
+    "/api/v1/platform/simulate/listing-update": {
+      "post": {
+        "operationId": "PlatformDevController_listingUpdate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingUpdateEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Patch a simulated listing (creates an update event).",
+        "tags": [
+          "platform (simulated)"
+        ]
+      }
+    },
+    "/api/v1/platform/simulate/order-update": {
+      "post": {
+        "operationId": "PlatformDevController_orderUpdate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderUpdateEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Patch a simulated order (creates an order update event).",
+        "tags": [
+          "platform (simulated)"
+        ]
+      }
+    },
+    "/api/v1/platform/simulate/inject-order": {
+      "post": {
+        "operationId": "PlatformDevController_injectOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InjectOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Inject a new order on the simulated platform.",
+        "tags": [
+          "platform (simulated)"
+        ]
+      }
+    },
+    "/api/v1/carriers": {
+      "get": {
+        "operationId": "CarrierController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List configured carriers.",
+        "tags": [
+          "carriers"
+        ]
+      },
+      "post": {
+        "operationId": "CarrierController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarrierInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a carrier with recognition/transform rules.",
+        "tags": [
+          "carriers"
+        ]
+      }
+    },
+    "/api/v1/carriers/{id}": {
+      "patch": {
+        "operationId": "CarrierController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarrierInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a carrier (transform changes must bump version).",
+        "tags": [
+          "carriers"
+        ]
+      },
+      "delete": {
+        "operationId": "CarrierController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a carrier (blocked when shipments reference it).",
+        "tags": [
+          "carriers"
+        ]
+      }
+    },
+    "/api/v1/carriers/preview": {
+      "post": {
+        "operationId": "CarrierController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarrierPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Recognize a tracking number and preview the public tracking result.",
+        "tags": [
+          "carriers"
+        ]
+      }
+    },
+    "/api/v1/carriers/{id}/collisions": {
+      "post": {
+        "operationId": "CarrierController_collisions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarrierCollisionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Run collision detection over sample tracking numbers.",
+        "tags": [
+          "carriers"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/shipments/recognize": {
+      "post": {
+        "operationId": "ShipmentController_recognize",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognizeTrackingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Recognize a tracking number: single match, ambiguous candidates, or none (§12.3).",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/shipments/preview": {
+      "post": {
+        "operationId": "ShipmentController_preview",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Preview one carrier choice: public tracking result, policy, and planned send time (§12.3 step 6).",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/shipments": {
+      "post": {
+        "operationId": "ShipmentController_create",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Record the local shipping fact (first release: one per order).",
+        "tags": [
+          "shipments"
+        ]
+      },
+      "get": {
+        "operationId": "ShipmentController_list",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Shipments recorded for the order.",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/shipments/{shipmentId}/revisions": {
+      "post": {
+        "operationId": "ShipmentController_revise",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Correct a shipment: new values + reason, then the revision policy (§12.12).",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/shipments/{shipmentId}/tracking": {
+      "get": {
+        "operationId": "ShipmentController_getTracking",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Tracking snapshot for the shipment, with URL fallback (§12.6).",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/shipments": {
+      "get": {
+        "operationId": "ShipmentListController_list",
+        "parameters": [
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "scheduled",
+                "needs_attention"
+              ]
+            }
+          },
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Shipments list views (§24): all / scheduled / needs attention.",
+        "tags": [
+          "shipments"
+        ]
+      }
+    },
+    "/api/v1/shipping-settings": {
+      "get": {
+        "operationId": "ShippingSettingsController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Global shipping settings (External Timezone, policies, schedule).",
+        "tags": [
+          "shipping-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "ShippingSettingsController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingSettingsPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update global shipping settings (validated, audited).",
+        "tags": [
+          "shipping-settings"
+        ]
+      }
+    },
+    "/api/v1/stores": {
+      "post": {
+        "operationId": "StoresController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStoreDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Register a Store; connect it before synchronizing.",
+        "tags": [
+          "stores"
+        ]
+      },
+      "get": {
+        "operationId": "StoresController_list",
+        "parameters": [
+          {
+            "name": "platform",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "shopify",
+                "etsy"
+              ]
+            }
+          },
+          {
+            "name": "connectionState",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "connected",
+                "paused",
+                "disconnected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List Stores with platform/state filters.",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/stores/{id}/connect": {
+      "post": {
+        "operationId": "StoresController_connect",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectStoreDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Verify the relay-backed Shopify connection (scopes + shop domain) and connect the Store.",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/stores/{id}": {
+      "delete": {
+        "operationId": "StoresController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an order-less store (destructive, audited).",
+        "tags": [
+          "stores"
+        ]
+      },
+      "get": {
+        "operationId": "StoresController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a Store.",
+        "tags": [
+          "stores"
+        ]
+      },
+      "patch": {
+        "operationId": "StoresController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStoreDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update display name and platform settings.",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/stores/{id}/pause": {
+      "post": {
+        "operationId": "StoresController_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Pause imports (pending queue content is preserved).",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/stores/{id}/resume": {
+      "post": {
+        "operationId": "StoresController_resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Resume imports.",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/stores/{id}/synchronize": {
+      "post": {
+        "operationId": "StoresController_synchronize",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Run one import pass against the Store platform (relay or simulated).",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/api/v1/listings": {
+      "get": {
+        "operationId": "ListingsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Read-only listing mirror across stores.",
+        "tags": [
+          "listings"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "disabled",
+                "must-change"
+              ]
+            }
+          },
+          {
+            "name": "roleKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List users with status/role filters.",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create an account with a one-time temporary password (shown once, forces change).",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/roles": {
+      "get": {
+        "operationId": "UsersController_listRoles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List assignable roles.",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/set-active": {
+      "post": {
+        "operationId": "UsersController_setActive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Disable or re-enable an account (disabling revokes sessions).",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/reset-password": {
+      "post": {
+        "operationId": "UsersController_resetPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Issue a new one-time password; revokes sessions and forces a change.",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/roles": {
+      "post": {
+        "operationId": "UsersController_setRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRolesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Replace the role assignments of a user.",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/change-password": {
+      "post": {
+        "operationId": "MeActionsController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Change the own password (also completes a forced change after a temporary password).",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "operationId": "MeActionsController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Return the own principal (convenience alias).",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "better-auth.session_token": []
+          }
+        ],
+        "summary": "Sign in with email and password (Better Auth).",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "better-auth.session_token": []
+          }
+        ],
+        "summary": "Revoke the current session (Better Auth).",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "better-auth.session_token": []
+          }
+        ],
+        "summary": "Return the authenticated principal.",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Order Management API",
+    "description": "Order Management System REST API (/api/v1). Authentication endpoints (sign-in/sign-out/get-session) are served by Better Auth outside this contract; use GET /api/v1/auth/me for the merged principal.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token"
+      }
+    },
+    "schemas": {
+      "CreateItemDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "CreateItemVariantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "optionValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateItemVariantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "optionValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "CreateNoteDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "MappingResolveDto": {
+        "type": "object",
+        "properties": {
+          "listingVariantId": {
+            "type": "string"
+          },
+          "itemVariantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingVariantId",
+          "itemVariantId"
+        ]
+      },
+      "OrderLineInputDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "itemVariantId": {
+            "type": "string"
+          },
+          "listingVariantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "OrderCustomerInputDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "addressLine1": {
+            "type": "string"
+          },
+          "addressLine2": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateManualOrderDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLineInputDto"
+            }
+          },
+          "customer": {
+            "$ref": "#/components/schemas/OrderCustomerInputDto"
+          },
+          "buyerNote": {
+            "type": "string"
+          },
+          "giftInfo": {
+            "type": "object"
+          },
+          "deliveryMethod": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "ReviseOrderDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "customer": {
+            "$ref": "#/components/schemas/OrderCustomerInputDto"
+          },
+          "buyerNote": {
+            "type": "string"
+          },
+          "deliveryMethod": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "CreateOrderLinkDto": {
+        "type": "object",
+        "properties": {
+          "relatedOrderId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relatedOrderId"
+        ]
+      },
+      "ApproveBatchDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "InjectListingDto": {
+        "type": "object",
+        "properties": {
+          "externalListingId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "default": "active"
+          }
+        },
+        "required": [
+          "externalListingId",
+          "title"
+        ]
+      },
+      "ListingUpdateEventDto": {
+        "type": "object",
+        "properties": {
+          "externalListingId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalListingId"
+        ]
+      },
+      "OrderUpdateEventDto": {
+        "type": "object",
+        "properties": {
+          "externalOrderId": {
+            "type": "string"
+          },
+          "buyerNote": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalOrderId"
+        ]
+      },
+      "InjectOrderLineDto": {
+        "type": "object",
+        "properties": {
+          "listingExternalId": {
+            "type": "string"
+          },
+          "variantExternalId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          }
+        },
+        "required": [
+          "listingExternalId",
+          "variantExternalId",
+          "title"
+        ]
+      },
+      "InjectOrderDto": {
+        "type": "object",
+        "properties": {
+          "externalOrderId": {
+            "type": "string"
+          },
+          "displayNumber": {
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InjectOrderLineDto"
+            }
+          },
+          "customerName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "customerExtra": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "externalOrderId",
+          "displayNumber",
+          "lines",
+          "customerName"
+        ]
+      },
+      "CarrierNormalizationDto": {
+        "type": "object",
+        "properties": {
+          "stripSpaces": {
+            "type": "boolean"
+          },
+          "uppercase": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CarrierRecognitionDto": {
+        "type": "object",
+        "properties": {
+          "regexes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalization": {
+            "$ref": "#/components/schemas/CarrierNormalizationDto"
+          },
+          "priority": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "regexes"
+        ]
+      },
+      "CarrierInputDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "recognition": {
+            "$ref": "#/components/schemas/CarrierRecognitionDto"
+          },
+          "trackingUrlTemplate": {
+            "type": "object"
+          },
+          "attakyTransform": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "recognition"
+        ]
+      },
+      "CarrierPreviewDto": {
+        "type": "object",
+        "properties": {
+          "trackingNumber": {
+            "type": "string"
+          },
+          "carrierId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trackingNumber"
+        ]
+      },
+      "CarrierCollisionsDto": {
+        "type": "object",
+        "properties": {
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "samples"
+        ]
+      },
+      "RecognizeTrackingDto": {
+        "type": "object",
+        "properties": {
+          "trackingNumber": {
+            "type": "string",
+            "example": "SF1234567890123"
+          }
+        },
+        "required": [
+          "trackingNumber"
+        ]
+      },
+      "ShipmentPreviewDto": {
+        "type": "object",
+        "properties": {
+          "trackingNumber": {
+            "type": "string",
+            "example": "SF1234567890123"
+          },
+          "carrierId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trackingNumber",
+          "carrierId"
+        ]
+      },
+      "ShipmentEntryDto": {
+        "type": "object",
+        "properties": {
+          "trackingNumber": {
+            "type": "string",
+            "example": "SF1234567890123"
+          },
+          "carrierId": {
+            "type": "string",
+            "description": "Chosen carrier: auto match, ambiguity resolution, or manual selection."
+          },
+          "dispatchedAt": {
+            "type": "string",
+            "description": "Actual dispatch time; defaults to entry time."
+          }
+        },
+        "required": [
+          "trackingNumber",
+          "carrierId"
+        ]
+      },
+      "ShipmentRevisionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Required human reason for the correction (§12.12)."
+          },
+          "trackingNumber": {
+            "type": "string",
+            "description": "Replacement tracking number; defaults to the current one."
+          },
+          "carrierId": {
+            "type": "string",
+            "description": "Replacement carrier; defaults to the current one."
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "OutboundScheduleConfigDto": {
+        "type": "object",
+        "properties": {
+          "fixedTime": {
+            "type": "object",
+            "example": "17:30",
+            "description": "Daily fixed send time (HH:mm). Wins over the window when set."
+          },
+          "windowStart": {
+            "type": "object",
+            "example": "09:00"
+          },
+          "windowEnd": {
+            "type": "object",
+            "example": "18:00"
+          },
+          "daysOfWeek": {
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "description": "0=Sunday .. 6=Saturday",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "workdaysOnly": {
+            "type": "boolean",
+            "description": "Restrict to Mon-Fri (holiday calendars out of first release)."
+          }
+        }
+      },
+      "ShippingSettingsPatchDto": {
+        "type": "object",
+        "properties": {
+          "externalTimezone": {
+            "type": "string",
+            "example": "Asia/Shanghai",
+            "description": "The one system-wide External Timezone (IANA name)."
+          },
+          "initialSyncPolicy": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "scheduled",
+              "review_then_immediate",
+              "review_then_scheduled"
+            ]
+          },
+          "revisionSyncPolicy": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "scheduled",
+              "review_then_immediate",
+              "review_then_scheduled"
+            ]
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/OutboundScheduleConfigDto"
+          },
+          "ownSiteTrackingUrlTemplate": {
+            "type": "object",
+            "description": "Global-default own-site tracking URL template ({number} placeholder). Null clears it.",
+            "example": "https://track.attaky.com/{number}"
+          }
+        }
+      },
+      "CreateStoreDto": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "shopify",
+              "etsy"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "externalShopId": {
+            "type": "string"
+          },
+          "externalShopName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "displayName"
+        ]
+      },
+      "ConnectStoreDto": {
+        "type": "object",
+        "properties": {
+          "importStartDate": {
+            "type": "string",
+            "description": "Earliest order date to import (ISO 8601). Defaults to all available."
+          }
+        }
+      },
+      "StorePolicyOverrideDto": {
+        "type": "object",
+        "properties": {
+          "initial": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "scheduled",
+              "review_then_immediate",
+              "review_then_scheduled"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "scheduled",
+              "review_then_immediate",
+              "review_then_scheduled"
+            ]
+          }
+        }
+      },
+      "UpdateStoreDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "settings": {
+            "type": "object"
+          },
+          "shippingPolicyOverride": {
+            "description": "Per-store outbound sync policy overrides (§12.8).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorePolicyOverrideDto"
+              }
+            ]
+          }
+        }
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "roleKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ]
+      },
+      "SetActiveDto": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isActive"
+        ]
+      },
+      "SetRolesDto": {
+        "type": "object",
+        "properties": {
+          "roleKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "roleKeys"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Current (or one-time temporary) password."
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "admin@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "AuthUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "example": "admin@example.com"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Administrator"
+          },
+          "permissions": {
+            "example": [
+              "orders:read",
+              "items:read"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "permissions",
+          "isActive",
+          "mustChangePassword"
+        ]
+      }
+    }
+  }
+}

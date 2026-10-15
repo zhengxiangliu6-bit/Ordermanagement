@@ -1,0 +1,27 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# secrets never enter the repo
+.env
+.env.local
+.env.*.local
+deploy/*.env
+
+# build / tooling caches
+.tsbuildinfo
+.eslintcache
+.vite/
+
+# compiled output from stray tsc runs (build belongs in dist/)
+apps/relay-worker/src/**/*.js
+apps/relay-worker/src/**/*.js.map
+apps/relay-worker/test/**/*.js
+apps/relay-worker/test/**/*.js.map
+
+# attachment storage volume (user content never enters git)
+apps/api/data/
+
+apps/api/json-debug2.ts

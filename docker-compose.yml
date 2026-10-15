@@ -1,0 +1,26 @@
+# Development database. Bring it up with:
+#   docker compose up -d postgres
+# (If the Docker Compose plugin is not installed, an equivalent `docker run`
+#  command is documented in README.md.)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: om-pg-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: om
+      POSTGRES_PASSWORD: om_dev_pw
+      POSTGRES_DB: order_management
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - om-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U om -d order_management"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  om-pg-data:

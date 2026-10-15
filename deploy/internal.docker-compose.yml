@@ -1,0 +1,47 @@
+# Private Order Management stack (trusted LAN, plain HTTP per ADR-004).
+# Deploy from the repository root: docker compose -f deploy/internal.docker-compose.yml up -d
+# Secrets come from env files that are never committed (see README).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: om
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in deploy env file}
+      POSTGRES_DB: order_management
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U om -d order_management"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./api.env   # BETTER_AUTH_SECRET, DATABASE_URL, admin seed, etc. (local only)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Controlled attachment storage (storage abstraction lands in M1+).
+      - attachments:/data/attachments
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"   # trusted LAN only; revisit ADR-004 if ever exposed
+
+volumes:
+  pgdata:
+  attachments:

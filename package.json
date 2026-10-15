@@ -1,0 +1,35 @@
+{
+  "name": "order-management",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "@tailwindcss/oxide",
+      "@swc/core"
+    ]
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @om/api dev",
+    "dev:web": "pnpm --filter @om/web dev",
+    "dev:relay": "pnpm --filter @om/relay-worker dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "generate:api": "pnpm --filter @om/api export:openapi && pnpm --filter @om/web generate:client",
+    "db:migrate": "pnpm --filter @om/api db:migrate",
+    "db:seed": "pnpm --filter @om/api db:seed"
+  },
+  "devDependencies": {
+    "eslint": "^9.20.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.0"
+  }
+}

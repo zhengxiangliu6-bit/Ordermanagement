@@ -1,0 +1,55 @@
+{
+  "name": "@om/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsc -p tsconfig.build.json && node --watch dist/main.js & tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "worker:dev": "tsc -p tsconfig.build.json && node --watch dist/worker.js & tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "OM_E2E=1 vitest run",
+    "export:openapi": "tsc -p tsconfig.build.json && node scripts/export-openapi.js",
+    "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "demo:seed": "tsx prisma/demo-seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.10",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.10",
+    "@nestjs/platform-express": "^11.0.10",
+    "@nestjs/swagger": "^11.0.5",
+    "@om/relay-contract": "workspace:*",
+    "@om/shared": "workspace:*",
+    "@prisma/client": "^6.4.0",
+    "better-auth": "1.7.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "express": "^5.1.0",
+    "multer": "^2.3.0",
+    "pg-boss": "^12.30.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.10",
+    "@swc/core": "^1.16.2",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.13.4",
+    "@types/supertest": "^6.0.2",
+    "prisma": "^6.4.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "unplugin-swc": "^1.5.11",
+    "vitest": "^3.0.5"
+  }
+}

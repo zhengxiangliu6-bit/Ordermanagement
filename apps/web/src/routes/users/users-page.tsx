@@ -1,0 +1,269 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { Modal } from "../../components/modal";
+import { api } from "../../api-client/client";
+
+interface UserView {
+  id: string;
+  email: string;
+  displayName: string;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  roleKeys: string[];
+  roleNames: string[];
+}
+
+interface RoleView {
+  key: string;
+  name: string;
+  permissions: string[];
+}
+
+export default function UsersPage() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const [creating, setCreating] = useState(false);
+  const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"" | "active" | "disabled" | "must-change">("");
+  const [roleKey, setRoleKey] = useState("");
+
+  const users = useQuery({
+    queryKey: ["users", { status, roleKey }],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/api/v1/users", {
+        params: { query: { status: status || undefined, roleKey: roleKey || undefined } },
+      });
+      if (!response.ok || !data) throw new Error(`List failed (${response.status})`);
+      return data as unknown as UserView[];
+    },
+  });
+
+  const roles = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/api/v1/users/roles");
+      if (!response.ok || !data) throw new Error(`Roles failed (${response.status})`);
+      return data as unknown as RoleView[];
+    },
+  });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["users"] });
+
+  const createUser = async (form: HTMLFormElement) => {
+    const formData = new FormData(form);
+    setError(null);
+    const roleKeys = roles.data
+      ?.filter((role) => formData.get(`role-${role.key}`) === "on")
+      .map((role) => role.key);
+    const { data, response } = await api.POST("/api/v1/users", {
+      body: {
+        email: String(formData.get("email") ?? "").trim(),
+        name: String(formData.get("name") ?? "").trim(),
+        roleKeys: roleKeys && roleKeys.length > 0 ? roleKeys : ["staff"],
+      },
+    });
+    if (!response.ok || !data) {
+      setError(t("users.createUserFailed", { status: response.status }));
+      return;
+    }
+    setCreating(false);
+    await refresh();
+    // The one-time temporary password is shown exactly once.
+    setIssuedPassword((data as { temporaryPassword: string }).temporaryPassword);
+  };
+
+  const setActive = async (userId: string, isActive: boolean) => {
+    setError(null);
+    const { response } = await api.POST("/api/v1/users/{id}/set-active", {
+      params: { path: { id: userId } },
+      body: { isActive },
+    });
+    if (!response.ok) {
+      setError(
+        t("users.actionFailed", {
+          action: isActive ? t("users.enable") : t("users.disable"),
+          status: response.status,
+        }),
+      );
+      return;
+    }
+    await refresh();
+  };
+
+  const resetPassword = async (userId: string) => {
+    if (!window.confirm(t("users.resetConfirm"))) return;
+    setError(null);
+    const { data, response } = await api.POST("/api/v1/users/{id}/reset-password", {
+      params: { path: { id: userId } },
+    });
+    if (!response.ok || !data) {
+      setError(t("users.actionFailed", { action: t("users.resetPassword"), status: response.status }));
+      return;
+    }
+    setIssuedPassword((data as { temporaryPassword: string }).temporaryPassword);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">{t("users.title")}</h1>
+        <button
+          type="button"
+          onClick={() => setCreating((value) => !value)}
+          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+        >
+          {creating ? t("common.cancel") : t("users.newUser")}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-slate-500">
+        {t("users.newUserIntro")}
+      </p>
+
+      {issuedPassword ? (
+        <div className="mt-4 rounded border border-amber-300 bg-amber-50 p-4 text-sm">
+          <p className="font-medium text-amber-900">{t("users.oneTimePasswordTitle")}</p>
+          <p className="mt-1 font-mono text-base">{issuedPassword}</p>
+          <p className="mt-1 text-amber-800">{t("users.oneTimePasswordCopy")}</p>
+          <button
+            type="button"
+            onClick={() => setIssuedPassword(null)}
+            className="mt-2 rounded border border-amber-400 px-2.5 py-1 hover:bg-amber-100"
+          >
+            {t("users.iHaveSavedIt")}
+          </button>
+        </div>
+      ) : null}
+
+      {creating ? (
+        <Modal title={t("users.newUser")} onClose={() => setCreating(false)}>
+        <form
+          className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 text-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createUser(event.currentTarget);
+          }}
+        >
+          <label htmlFor="user-email" className="self-center font-medium">{t("users.email")}</label>
+          <input id="user-email" name="email" type="email" required className="rounded border border-slate-300 px-2 py-1" />
+          <label htmlFor="user-name" className="self-center font-medium">{t("users.name")}</label>
+          <input id="user-name" name="name" required className="rounded border border-slate-300 px-2 py-1" />
+          <span className="self-center font-medium">{t("users.roles")}</span>
+          <div className="flex flex-col gap-1">
+            {(roles.data ?? []).map((role) => (
+              <label key={role.key} className="flex items-center gap-2">
+                <input type="checkbox" name={`role-${role.key}`} defaultChecked={role.key === "staff"} />
+                {t(`roles.${role.key}`, role.name)}{" "}
+                <span className="text-slate-400">({role.key})</span>
+              </label>
+            ))}
+          </div>
+          {error ? <div /> : <p className="text-sm text-red-600" role="alert">{error}</p>}
+          <div />
+          <button type="submit" className="justify-self-start rounded bg-slate-700 px-3 py-1.5 text-white hover:bg-slate-600">
+            {t("users.createUser")}
+          </button>
+        </form>
+        </Modal>
+      ) : null}
+
+      {error && !creating ? (
+        <p className="mt-3 text-sm text-red-600" role="alert">{error}</p>
+      ) : null}
+
+      <div className="mt-4 flex items-center gap-4 text-sm">
+        <select
+          value={status}
+          onChange={(event) =>
+            setStatus(event.target.value as "" | "active" | "disabled" | "must-change")
+          }
+          className="rounded border border-slate-300 px-2 py-1"
+        >
+          <option value="">{t("users.allStatuses")}</option>
+          <option value="active">{t("users.statusActive")}</option>
+          <option value="must-change">{t("users.statusMustChange")}</option>
+          <option value="disabled">{t("users.statusDisabled")}</option>
+        </select>
+        <select
+          value={roleKey}
+          onChange={(event) => setRoleKey(event.target.value)}
+          className="rounded border border-slate-300 px-2 py-1"
+        >
+          <option value="">{t("users.allRoles")}</option>
+          {(roles.data ?? []).map((role) => (
+            <option key={role.key} value={role.key}>{role.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <table className="mt-3 w-full border-collapse bg-white text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-slate-500">
+            <th className="px-3 py-2 font-medium">{t("users.name")}</th>
+            <th className="px-3 py-2 font-medium">{t("users.email")}</th>
+            <th className="px-3 py-2 font-medium">{t("users.roles")}</th>
+            <th className="px-3 py-2 font-medium">{t("users.allStatuses")}</th>
+            <th className="px-3 py-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.isLoading ? (
+            <tr><td colSpan={5} className="px-3 py-6 text-slate-400">{t("common.loading")}</td></tr>
+          ) : users.isError ? (
+            <tr><td colSpan={5} className="px-3 py-6 text-red-600">{(users.error as Error).message}</td></tr>
+          ) : users.data && users.data.length > 0 ? (
+            users.data.map((user) => (
+              <tr key={user.id} className="border-b border-slate-100">
+                <td className="px-3 py-2 font-medium">{user.displayName}</td>
+                <td className="px-3 py-2 text-slate-500">{user.email}</td>
+                <td className="px-3 py-2">
+                  {user.roleKeys.map((key) => t(`roles.${key}`, key)).join("、")}
+                </td>
+                <td className="px-3 py-2">
+                  {!user.isActive ? (
+                    <span className="text-red-700">{t("users.statusDisabled")}</span>
+                  ) : user.mustChangePassword ? (
+                    <span className="text-amber-700">{t("users.statusMustChange")}</span>
+                  ) : (
+                    <span className="text-emerald-700">{t("users.statusActive")}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <span className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => resetPassword(user.id)}
+                      className="text-slate-500 hover:text-slate-800"
+                    >
+                      {t("users.resetPassword")}
+                    </button>
+                    {user.isActive ? (
+                      <button
+                        type="button"
+                        onClick={() => setActive(user.id, false)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        {t("users.disable")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActive(user.id, true)}
+                        className="text-slate-500 hover:text-slate-800"
+                      >
+                        {t("users.enable")}
+                      </button>
+                    )}
+                  </span>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr><td colSpan={5} className="px-3 py-6 text-slate-400">{t("users.noUsersFound")}</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}

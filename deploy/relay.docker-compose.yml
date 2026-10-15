@@ -1,0 +1,23 @@
+# Public Relay Worker stack (Internet-facing VPS).
+# Deploy from the repository root: docker compose -f deploy/relay.docker-compose.yml up -d
+#
+# HTTPS terminates at an edge proxy in front of this service (ADR-004); the
+# worker itself serves plain HTTP on 3100. It holds no staff UI and no
+# authoritative business records — transport and platform adaptation only.
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: apps/relay-worker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./relay.env   # RELAY_MACHINE_TOKEN, SHOPIFY_WEBHOOK_SECRET (local only)
+    ports:
+      - "127.0.0.1:3100:3100"  # edge proxy forwards public HTTPS here
+    volumes:
+      # Future durable envelope store / attachment staging lives here.
+      - relay-data:/data
+
+volumes:
+  relay-data:

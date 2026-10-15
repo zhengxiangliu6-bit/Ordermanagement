@@ -1,0 +1,620 @@
+// Order Management System — Prisma schema.
+//
+// Identity tables follow the Better Auth Prisma adapter contract
+// (user / session / account / verification). Better Auth owns passwords,
+// sessions, and revocation; this application owns roles, business
+// permissions, and all authorization decisions.
+//
+// M1 (data foundation): core business domains. External platform statuses
+// and payloads are stored as verbatim JSON; internal states use explicit
+// columns. Shipment/Carrier/Review behavior lands in later milestones —
+// the entities here preserve their extension paths (functional design
+// §12.2, §14).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & access (Better Auth contract + Order Management RBAC)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Order Management custom fields (see better-auth additionalFields).
+  isActive           Boolean @default(true)
+  mustChangePassword Boolean @default(false)
+
+  sessions     Session[]
+  accounts     Account[]
+  roles        UserRole[]
+  notesCreated Note[]     @relation("NoteCreatedBy")
+  notesUpdated Note[]     @relation("NoteUpdatedBy")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  // The credential hash for the email/password provider lives here.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Better Auth identifies a provider-side account by this pair (review P2).
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Order Management RBAC. Better Auth authenticates; these tables authorize.
+model Role {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String     @unique
+  name        String
+  permissions String[]
+  users       UserRole[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model UserRole {
+  userId    String
+  roleId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  // Reverse lookup: list users assigned to a role (review P3).
+  @@index([roleId])
+}
+
+// ---------------------------------------------------------------------------
+// Stores (§6) — one connected external shop/account per row.
+// ---------------------------------------------------------------------------
+
+model Store {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform               String
+  displayName            String
+  externalShopId         String?
+  externalShopName       String?
+  // connected | disconnected | paused
+  connectionState        String    @default("disconnected")
+  lastSyncAt             DateTime?
+  lastSyncError          Json?
+  // Earliest order date to import during initial connection.
+  importStartDate        DateTime?
+  // Per-store review policy overrides (global defaults live in settings).
+  reviewPolicy           Json?
+  // Per-store outbound sync policy overrides (§12.8): { initial?, revision? }.
+  // Values: immediate | scheduled | review_then_immediate | review_then_scheduled.
+  shippingPolicyOverride Json?
+  // Platform capability profile: which outbound behaviors the platform supports.
+  capabilities           Json?
+  // Platform-specific settings (only options the platform can honor).
+  settings               Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  listings Listing[]
+  orders   Order[]
+
+  @@index([platform])
+}
+
+// ---------------------------------------------------------------------------
+// Internal Item catalog (§7) — independent of sales channels.
+// ---------------------------------------------------------------------------
+
+model Item {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  category    String?
+  tags        String[]
+  images      Json?
+  archivedAt  DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  variants        ItemVariant[]
+  contentVersions ItemContentVersion[]
+  notes           Note[]               @relation("ItemNotes")
+
+  @@index([name])
+  @@index([archivedAt])
+}
+
+model ItemVariant {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId       String    @db.Uuid
+  // Permanent, unique, system-generated Attaky identity (§4, §26.5).
+  itemCode     String    @unique
+  name         String
+  optionValues Json?
+  images       Json?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  item            Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  orderLines      OrderLine[]
+  notes           Note[]           @relation("ItemVariantNotes")
+  attachments     Attachment[]     @relation("ItemVariantAttachments")
+  listingVariants ListingVariant[]
+
+  @@index([itemId])
+}
+
+/// Snapshot of item content at a point in time; shared by many Order Lines.
+model ItemContentVersion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId      String   @db.Uuid
+  snapshot    Json
+  effectiveAt DateTime @default(now())
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  orderLines OrderLine[]
+
+  @@index([itemId])
+}
+
+// ---------------------------------------------------------------------------
+// Listings (§8.1) — external platform mirror.
+// ---------------------------------------------------------------------------
+
+model Listing {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storeId            String    @db.Uuid
+  externalListingId  String
+  // Verbatim platform status (active/draft/inactive/sold_out/archived/...).
+  status             String?
+  currentVersionId   String?   @unique @db.Uuid
+  lastSourceUpdateAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  store           Store                   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variants        ListingVariant[]
+  contentVersions ListingContentVersion[] @relation("ListingContentVersions")
+  currentVersion  ListingContentVersion?  @relation("ListingCurrentVersion", fields: [currentVersionId], references: [id])
+  notes           Note[]                  @relation("ListingNotes")
+
+  @@unique([storeId, externalListingId])
+}
+
+model ListingVariant {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId         String   @db.Uuid
+  externalVariantId String
+  externalSku       String?
+  optionValues      Json?
+  // THE mapping (§8.2): a Listing Variant links to at most one Item Variant.
+  itemVariantId     String?  @db.Uuid
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  listing     Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  itemVariant ItemVariant? @relation(fields: [itemVariantId], references: [id], onDelete: SetNull)
+  orderLines  OrderLine[]
+  notes       Note[]       @relation("ListingVariantNotes")
+
+  @@unique([listingId, externalVariantId])
+  @@index([itemVariantId])
+}
+
+/// Snapshot of listing content (incl. its variants) at a point in time.
+model ListingContentVersion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId   String   @db.Uuid
+  snapshot    Json
+  effectiveAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  listing           Listing     @relation("ListingContentVersions", fields: [listingId], references: [id], onDelete: Cascade)
+  // Set when this version is the listing's current version.
+  currentForListing Listing?    @relation("ListingCurrentVersion")
+  orderLines        OrderLine[]
+
+  @@index([listingId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders (§10) — external and manual; source data immutable (§11).
+// ---------------------------------------------------------------------------
+
+model Order {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // external | manual
+  source               String
+  storeId              String?   @db.Uuid
+  platform             String?
+  externalOrderId      String?
+  // External display number, or a system-generated internal Order Number
+  // for manual orders (§10.2).
+  displayNumber        String
+  // Verbatim platform statuses; a local correction is an OrderRevision,
+  // never an overwrite (§10.3).
+  statusRaw            Json?
+  fulfillmentRaw       Json?
+  // Historical customer snapshot (§17): name/phone/email/address/...
+  customerSnapshot     Json?
+  buyerNote            String?
+  giftInfo             Json?
+  deliveryMethod       String?
+  // Platform-provided monetary data; restricted, read-only (§21).
+  financial            Json?
+  // Original source content as first received/created (§11): the
+  // "original view" of the three-view detail; never modified afterwards.
+  rawSource            Json?
+  // Last accepted external values (three-way conflict base, §15).
+  lastAcceptedExternal Json?
+  archivedAt           DateTime?
+  deletedAt            DateTime?
+  deletedReason        String?
+  createdBy            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  store      Store?          @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  lines      OrderLine[]
+  revisions  OrderRevision[]
+  notes      Note[]          @relation("OrderNotes")
+  shipments  Shipment[]
+  links      OrderLink[]     @relation("OrderLinks")
+  linkedFrom OrderLink[]     @relation("OrderLinkedFrom")
+
+  @@unique([storeId, externalOrderId])
+  @@index([displayNumber])
+  @@index([archivedAt, deletedAt])
+}
+
+model OrderLine {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId         String  @db.Uuid
+  externalLineId  String?
+  quantity        Int
+  // Manual-order free-form content (§10.2): title required, rest optional.
+  title           String?
+  description     String?
+  personalization Json?
+
+  listingVariantId        String? @db.Uuid
+  listingContentVersionId String? @db.Uuid
+  itemVariantId           String? @db.Uuid
+  itemContentVersionId    String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order                 Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingVariant        ListingVariant?        @relation(fields: [listingVariantId], references: [id])
+  listingContentVersion ListingContentVersion? @relation(fields: [listingContentVersionId], references: [id])
+  itemVariant           ItemVariant?           @relation(fields: [itemVariantId], references: [id])
+  itemContentVersion    ItemContentVersion?    @relation(fields: [itemContentVersionId], references: [id])
+  notes                 Note[]                 @relation("OrderLineNotes")
+
+  @@unique([orderId, externalLineId])
+  @@index([listingVariantId])
+  @@index([itemVariantId])
+}
+
+/// Internal correction record; the original source view stays untouched (§11).
+model OrderRevision {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String   @db.Uuid
+  // Required human reason.
+  reason    String
+  before    Json
+  after     Json
+  userId    String
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Notes (§16) — appendable records with edit history, never written back.
+// ---------------------------------------------------------------------------
+
+model Note {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // item | item_variant | listing | listing_variant | order | order_line
+  ownerType String
+  ownerId   String
+  body      String
+  createdBy String
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  item           Item?           @relation("ItemNotes", fields: [itemOwnerId], references: [id], onDelete: Cascade)
+  itemVariant    ItemVariant?    @relation("ItemVariantNotes", fields: [itemVariantOwnerId], references: [id], onDelete: Cascade)
+  listing        Listing?        @relation("ListingNotes", fields: [listingOwnerId], references: [id], onDelete: Cascade)
+  listingVariant ListingVariant? @relation("ListingVariantNotes", fields: [listingVariantOwnerId], references: [id], onDelete: Cascade)
+  order          Order?          @relation("OrderNotes", fields: [orderOwnerId], references: [id], onDelete: Cascade)
+  orderLine      OrderLine?      @relation("OrderLineNotes", fields: [orderLineOwnerId], references: [id], onDelete: Cascade)
+
+  // Author display data; Better Auth owns the identity, we only surface id+name.
+  createdByUser User  @relation("NoteCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("NoteUpdatedBy", fields: [updatedBy], references: [id])
+
+  // Exactly one owner relation is set; these columns back the relations.
+  itemOwnerId           String? @db.Uuid
+  itemVariantOwnerId    String? @db.Uuid
+  listingOwnerId        String? @db.Uuid
+  listingVariantOwnerId String? @db.Uuid
+  orderOwnerId          String? @db.Uuid
+  orderLineOwnerId      String? @db.Uuid
+
+  revisions NoteRevision[]
+
+  @@index([ownerType, ownerId])
+  @@index([createdBy])
+  @@index([updatedBy])
+}
+
+model NoteRevision {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId       String   @db.Uuid
+  previousBody String
+  editedBy     String
+  editedAt     DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+// ---------------------------------------------------------------------------
+// Attachments (§16.4) — metadata only; content lives behind the storage
+// abstraction on a persistent volume (architecture §2.1).
+// ---------------------------------------------------------------------------
+
+model Attachment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerType  String
+  ownerId    String
+  filename   String
+  mimeType   String?
+  sizeBytes  Int?
+  storageKey String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  itemVariant ItemVariant? @relation("ItemVariantAttachments", fields: [itemVariantOwnerId], references: [id], onDelete: Cascade)
+
+  // Exactly one owner relation is set; extended per-feature over time.
+  itemVariantOwnerId String? @db.Uuid
+
+  @@index([ownerType, ownerId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit History (§23) — append-only. No updates, no deletes.
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // user | system
+  actorType  String
+  actorId    String?
+  action     String
+  objectType String
+  objectId   String?
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([objectType, objectId])
+  @@index([actorType, actorId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Shipping foundation (§12) — entities now, outbound behavior in M4.
+// ---------------------------------------------------------------------------
+
+model TrackingProvider {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String   @unique
+  name      String
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  carriers Carrier[]
+}
+
+model Carrier {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                 String   @unique
+  name                String
+  enabled             Boolean  @default(true)
+  // Recognition regexes, normalization rules, priority metadata (§12.4).
+  recognition         Json?
+  // Official tracking URL template.
+  trackingUrlTemplate String?
+  // Platform-specific carrier identifiers and public labels.
+  platformCarrierIds  Json?
+  // Controlled Attaky tracking-number transformation rules (§12.4).
+  attakyTransform     Json?
+  trackingProviderId  String?  @db.Uuid
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  trackingProvider TrackingProvider? @relation(fields: [trackingProviderId], references: [id])
+  shipments        Shipment[]
+
+  @@index([enabled])
+}
+
+model Shipment {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                String    @db.Uuid
+  carrierId              String?   @db.Uuid
+  originalTrackingNumber String?
+  // Globally unique: collision detection (§12.4) is enforced at DB level too.
+  attakyTrackingNumber   String?   @unique
+  carrierTrackingUrl     String?
+  attakyTrackingUrl      String?
+  trackingProviderId     String?   @db.Uuid
+  // attaky | carrier (§12.5) — recorded per outbound revision.
+  publicTrackingMode     String?
+  dispatchedAt           DateTime?
+  enteredBy              String
+  enteredAt              DateTime  @default(now())
+  // Local Shipment Status (physical fact known by Attaky).
+  localStatus            String    @default("prepared")
+  // Remote Sync Status: pending_review|scheduled|sending|synced|
+  // partially_synced|failed|not_supported|manual_action_required|
+  // not_applicable — manual orders skip outbound sync (§12.13) (§12.1).
+  remoteSyncStatus       String    @default("pending_review")
+  // Platform operation results, per operation (§12.11).
+  platformResults        Json?
+  // Carrier transform rule version captured at preparation time (§12.4).
+  ruleVersion            Int?
+  // Sync policy applied to this Shipment at entry (§12.8 snapshot).
+  policyMode             String?
+  // Next planned send time (External Timezone evaluation result, §12.7).
+  nextSendAt             DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  order     Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier   Carrier?           @relation(fields: [carrierId], references: [id])
+  revisions ShipmentRevision[]
+
+  @@index([orderId])
+  @@index([remoteSyncStatus])
+  @@index([remoteSyncStatus, nextSendAt])
+}
+
+model ShipmentRevision {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shipmentId String   @db.Uuid
+  // Required human reason (§12.12).
+  reason     String
+  changes    Json
+  syncStatus String?
+  userId     String
+  createdAt  DateTime @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+}
+
+/// Global shipping settings (§12.7/§12.8) — a single row, id "singleton".
+model ShippingSettings {
+  id                 String   @id @default("singleton")
+  // One system-wide External Timezone (IANA name); every outbound schedule
+  // rule is evaluated in it (§12.7).
+  externalTimezone   String   @default("Asia/Shanghai")
+  // Global-default Initial / Revision Shipment Sync Policies (§12.8).
+  initialSyncPolicy  String   @default("review_then_immediate")
+  revisionSyncPolicy String   @default("review_then_scheduled")
+  // OutboundScheduleConfig JSON (§12.7): fixed time / daytime window /
+  // allowed weekdays / workdays-only.
+  schedule           Json
+  // Global-default own-site tracking URL template (`{number}` placeholder):
+  // applies to carriers with an Attaky transform in stores that do not
+  // override it (2026-10-15 tracking-jump model). Null = fall back to the
+  // carrier's official template with the Attaky number (M4 behavior).
+  ownSiteTrackingUrlTemplate String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+/// Manually linked related orders (§17): linking never merges the customer
+/// snapshots of either order.
+model OrderLink {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String   @db.Uuid
+  relatedOrderId String   @db.Uuid
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  order        Order @relation("OrderLinks", fields: [orderId], references: [id], onDelete: Cascade)
+  relatedOrder Order @relation("OrderLinkedFrom", fields: [relatedOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, relatedOrderId])
+  @@index([relatedOrderId])
+}
+
+// ---------------------------------------------------------------------------
+// Review foundation (§13–§15) — queue behavior and conflict detection land
+// in M3; the record shape is fixed now so imports can stage against it.
+// ---------------------------------------------------------------------------
+
+model ReviewRecord {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // new_order | order_update | listing | shipment
+  type          String
+  // pending | approved | rejected
+  status        String    @default("pending")
+  storeId       String?   @db.Uuid
+  subjectId     String?
+  payload       Json?
+  decidedBy     String?
+  decidedAt     DateTime?
+  policyVersion String?
+  // Hash of the proposed external revision; identical hashes are not
+  // re-queued after rejection or while pending (§15).
+  payloadHash   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([type, status])
+  @@index([storeId, status])
+}

@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Attaky "Playful Industrial" brand tokens, aligned with the public site
+   (attaky-com tokens.css): locked brand red, carbon ink, paper neutrals,
+   and the playful PLA accent set. Fonts load from Google Fonts with system
+   fallbacks so the app stays usable offline. */
+@import url("https://fonts.googleapis.com/css2?family=Caprasimo&family=JetBrains+Mono:wght@400;600&display=swap");
+
+@theme {
+  --color-brand: #c72b2f;
+  --color-ink: #0f0e0d;
+  --color-paper: #fafafa;
+  --color-pill: #f5f5f5;
+
+  --color-play-yellow: #ffd400;
+  --color-play-blue: #0078bf;
+  --color-play-green: #61c680;
+  --color-play-orange: #f99963;
+  --color-play-pink: #e8afcf;
+
+  --font-display: "Caprasimo", "Cooper Black", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Signature hard offset shadow, used sparingly (cards on hover, primary
+   buttons, active pills) — the playful-industrial stamp. */
+@utility pop-shadow {
+  box-shadow: 3px 3px 0 rgba(15, 14, 13, 0.9);
+}
+
+@utility pop-shadow-sm {
+  box-shadow: 2px 2px 0 rgba(15, 14, 13, 0.08);
+}

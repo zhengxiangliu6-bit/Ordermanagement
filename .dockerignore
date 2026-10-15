@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+*.log
+.env
+.env.*
+!.env.example
+.git
+apps/web/src/api-client/schema.d.ts
