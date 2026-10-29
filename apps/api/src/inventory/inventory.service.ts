@@ -87,6 +87,7 @@ export class InventoryService {
         itemCode: variant.itemCode,
         name: variant.name,
         nameEn: variant.nameEn,
+        images: variant.images,
         archivedAt: variant.archivedAt,
         stocks: variant.stocks,
         total: variant.stocks.reduce((sum, stock) => sum + stock.quantity, 0),
@@ -108,7 +109,7 @@ export class InventoryService {
     const variant = await this.prisma.itemVariant.findUnique({
       where: { id: variantId },
       include: {
-        item: { select: { id: true, name: true, nameEn: true, archivedAt: true } },
+        item: { select: { id: true, name: true, nameEn: true, images: true, archivedAt: true } },
         stocks: true,
       },
     });

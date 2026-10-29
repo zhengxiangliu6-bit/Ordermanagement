@@ -1,3 +1,4 @@
+import { ImagePreviewButton } from "./image-preview";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/modal";
@@ -233,6 +234,9 @@ export default function ItemsPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="w-20 px-4 py-2.5 font-semibold">
+                    {t("inventory.imagesTitle")}
+                  </th>
                   <th className="px-4 py-2.5 font-semibold">
                     {t("items.name")}
                   </th>
@@ -260,6 +264,12 @@ export default function ItemsPage() {
                     onClick={() => navigate(`/items/${item.id}`)}
                     className="cursor-pointer border-b border-ink/5 transition-colors last:border-0 hover:bg-pill"
                   >
+                    <td className="px-4 py-2.5">
+                      <ImagePreviewButton
+                        images={item.images}
+                        name={item.name}
+                      />
+                    </td>
                     <td className="px-4 py-2.5 font-medium text-ink">
                       {item.name}
                     </td>

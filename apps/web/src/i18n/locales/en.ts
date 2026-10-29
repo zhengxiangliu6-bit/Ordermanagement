@@ -689,6 +689,9 @@ const en = {
     eventTailSaved: "Tail tracking saved",
   },
   inventory: {
+    variantImages: "Variant images",
+    productImages: "Product images",
+    noActiveVariants: "No active variants in this warehouse. Restore them from this warehouse’s archived list.",
     title: "Inventory",
     intro: "Inventory items mapped to product variants, managed per warehouse; packing deducts stock automatically.",
     newItem: "New inventory item",

@@ -679,6 +679,9 @@ const zh = {
     eventTailSaved: "尾程补录",
   },
   inventory: {
+    variantImages: "变体图片",
+    productImages: "主商品图片",
+    noActiveVariants: "当前仓库没有在用变体。可在该仓库的已归档列表中恢复。",
     title: "库存管理",
     intro: "库存物品与商品变体映射，按仓库管理库存；打包出库时自动扣减。",
     newItem: "新建库存物品",

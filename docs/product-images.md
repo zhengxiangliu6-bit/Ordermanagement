@@ -90,3 +90,30 @@ No database migration. Adding thumbnail preview buttons to the inventory overvie
 ### Confirmed variant-row image rules
 
 A variant row previews only that variant's own images. Multiple images are supported: show the first thumbnail with the additional-image count, then navigate all images in the viewer. If a variant has no images, omit the thumbnail and preview entry entirely, even when its parent product has a cover. Do not fall back to product images in variant rows. Apply the same rule when adding preview buttons to the inventory overview; that overview enhancement is still pending. A regression test covers a variant without images whose parent does have a cover.
+
+## Warehouse detail isolation and overview previews
+
+The two warehouses share the same catalog and page component, while archive status lives on a stock row identified by variant and warehouse. The inventory overview already filtered both catalog archive and the selected warehouse's stock archive; the product inventory detail previously filtered only catalog archive. It now uses the same warehouse-aware visibility rule. A China archive does not hide the variant in Canada. Archived variants remain selectable in historical movement filters, so history is not lost. Low-stock badges on detail screens use only the selected warehouse's stock, and movement placeholders do not reuse a different warehouse's data.
+
+The inventory response now includes variant image arrays and the parent product image field for variant detail. Both warehouse overviews and product inventory detail show clickable, multi-image previews, using only a variant's own images for variant rows. Single-variant inventory detail shows parent and variant galleries separately. The product catalog list has an independent thumbnail column; opening it does not navigate to product detail. Images remain thumbnail-first and display images load only on selection.
+
+No schema change or migration. Regression checks cover China archive vs Canada visibility, global catalog archive, warehouse-scoped stock writes and permissions, image response fields, absent variant previews, multiple-image navigation and product-list preview navigation. Backend repository calls are mocked in these tests; no production database data was changed.
+
+Modified files in this follow-up:
+
+- `apps/api/src/inventory/inventory.service.ts`
+- `apps/web/src/i18n/locales/en.ts`
+- `apps/web/src/i18n/locales/zh.ts`
+- `apps/web/src/routes/inventory/inventory-item-detail-page.tsx`
+- `apps/web/src/routes/inventory/inventory-page.tsx`
+- `apps/web/src/routes/inventory/inventory-variant-detail-page.tsx`
+- `apps/web/src/routes/items/item-images.tsx`
+- `apps/web/src/routes/items/items-page.tsx`
+- `docs/product-images.md`
+
+New files:
+
+- `apps/api/src/inventory/inventory-images.spec.ts`
+- `apps/web/src/routes/inventory/inventory-item-detail-page.spec.tsx`
+- `apps/web/src/routes/inventory/warehouse-stock.ts`
+- `apps/web/src/routes/items/items-page.spec.tsx`

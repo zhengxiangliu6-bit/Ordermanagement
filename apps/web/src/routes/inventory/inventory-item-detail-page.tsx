@@ -1,13 +1,21 @@
+import { ImagePreviewButton } from "../items/image-preview";
+import { ItemImages } from "../items/item-images";
+import { isActiveInWarehouse } from "./warehouse-stock";
 import { useState } from "react";
-import { Link, useParams, useNavigate, useRouteLoaderData, useSearchParams } from "react-router";
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import {
+  Link,
+  useParams,
+  useNavigate,
+  useRouteLoaderData,
+  useSearchParams,
+} from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageHeader, Card, Badge, buttonClasses } from "../../components/ui";
 import { Modal } from "../../components/modal";
 import {
   MovementFilterBar,
   MOVEMENT_LABELS,
-
   WAREHOUSE_LABELS,
 } from "./movement-filter-bar";
 import { warehouseDisplayName } from "./naming";
@@ -19,6 +27,7 @@ interface StockRow {
   warehouse: string;
   quantity: number;
   lowThreshold: number | null;
+  archivedAt: string | null;
 }
 
 interface InventoryVariantView {
@@ -26,6 +35,7 @@ interface InventoryVariantView {
   name: string;
   nameEn: string;
   archivedAt: string | null;
+  images: unknown;
   stocks: StockRow[];
   total: number;
   low: boolean;
@@ -36,6 +46,7 @@ interface InventoryItemView {
   name: string;
   nameEn: string;
   archivedAt: string | null;
+  images: unknown;
   variants: InventoryVariantView[];
 }
 
@@ -98,10 +109,11 @@ export default function InventoryItemDetailPage() {
   const [movementVariantId, setMovementVariantId] = useState("");
 
   const item = useQuery({
-    queryKey: ["inventory-item", id],
+    queryKey: ["inventory-item", id, warehouse],
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/inventory/items");
-      if (!response.ok || !data) throw new Error(`Load failed (${response.status})`);
+      if (!response.ok || !data)
+        throw new Error(`Load failed (${response.status})`);
       const items = data as unknown as InventoryItemView[];
       const found = items.find((row) => row.id === id);
       if (!found) throw new Error(t("inventory.itemNotFound"));
@@ -121,23 +133,31 @@ export default function InventoryItemDetailPage() {
       warehouse,
     ],
     queryFn: async () => {
-      const { data, response } = await api.GET("/api/v1/inventory/items/{id}/movements", {
-        params: {
-          path: { id },
-          query: {
-            page: movementPage,
-            pageSize: movementPageSize,
-            warehouse,
-            ...(movementType ? { type: movementType } : {}),
-            order: movementOrder,
-            ...(movementVariantId ? { variantId: movementVariantId } : {}),
-          },
-        } as never,
-      });
-      if (!response.ok || !data) throw new Error(`Load failed (${response.status})`);
+      const { data, response } = await api.GET(
+        "/api/v1/inventory/items/{id}/movements",
+        {
+          params: {
+            path: { id },
+            query: {
+              page: movementPage,
+              pageSize: movementPageSize,
+              warehouse,
+              ...(movementType ? { type: movementType } : {}),
+              order: movementOrder,
+              ...(movementVariantId ? { variantId: movementVariantId } : {}),
+            },
+          } as never,
+        },
+      );
+      if (!response.ok || !data)
+        throw new Error(`Load failed (${response.status})`);
       return data as unknown as MovementsPage;
     },
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === id &&
+      previousQuery?.queryKey.at(-1) === warehouse
+        ? previous
+        : undefined,
   });
 
   const refresh = () => {
@@ -151,7 +171,8 @@ export default function InventoryItemDetailPage() {
     if (!stockAction || !quantity) return;
     setBusy(true);
     setError(null);
-    const delta = stockAction.action === "in" ? Number(quantity) : -Number(quantity);
+    const delta =
+      stockAction.action === "in" ? Number(quantity) : -Number(quantity);
     const { response, error } = await api.POST(
       "/api/v1/inventory/variants/{variantId}/adjust",
       {
@@ -182,10 +203,17 @@ export default function InventoryItemDetailPage() {
     return <p className="text-sm text-slate-400">{t("common.loading")}</p>;
   }
   if (item.isError) {
-    return <p className="text-sm text-red-600">{(item.error as Error).message}</p>;
+    return (
+      <p className="text-sm text-red-600">{(item.error as Error).message}</p>
+    );
   }
   const detail = item.data;
   if (!detail) return null;
+  const activeVariants = detail.archivedAt
+    ? []
+    : detail.variants.filter((variant) =>
+        isActiveInWarehouse(variant, warehouse),
+      );
   const stockOf = (variant: InventoryVariantView) =>
     variant.stocks.find((row) => row.warehouse === warehouse)?.quantity ?? 0;
 
@@ -203,13 +231,30 @@ export default function InventoryItemDetailPage() {
           </button>
         }
       />
-      {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-      {detail.variants
-        .filter((variant) => !variant.archivedAt)
-        .map((variant) => (
+      <ItemImages
+        images={detail.images}
+        name={warehouseDisplayName(detail, warehouse)}
+      />
+      {activeVariants.length === 0 && (
+        <Card>
+          <p className="text-sm text-slate-500">
+            {t("inventory.noActiveVariants")}
+          </p>
+        </Card>
+      )}
+      {activeVariants.map((variant) => (
         <Card key={variant.id}>
           <div className="flex flex-wrap items-center gap-2">
+            <ImagePreviewButton
+              images={variant.images}
+              name={warehouseDisplayName(variant, warehouse)}
+            />
             <Link
               to={`/inventory/variant/${variant.id}?warehouse=${warehouse}`}
               className="font-semibold text-ink underline-offset-2 hover:underline"
@@ -219,7 +264,14 @@ export default function InventoryItemDetailPage() {
             <Badge tone="neutral">
               {t(`inventory.warehouse.${warehouse}`)}: {stockOf(variant)}
             </Badge>
-            {variant.low ? <Badge tone="danger">{t("inventory.low")}</Badge> : null}
+            {variant.stocks.some(
+              (stock) =>
+                stock.warehouse === warehouse &&
+                stock.lowThreshold != null &&
+                stock.quantity <= stock.lowThreshold,
+            ) ? (
+              <Badge tone="danger">{t("inventory.low")}</Badge>
+            ) : null}
           </div>
           {canManageWarehouse ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -263,113 +315,149 @@ export default function InventoryItemDetailPage() {
           <p className="text-sm text-slate-400">{t("common.loading")}</p>
         ) : movements.data ? (
           <>
-          <MovementFilterBar
-            type={movementType}
-            onType={(value) => {
-              setMovementType(value);
-              setMovementPage(1);
-            }}
-            order={movementOrder}
-            onOrder={setMovementOrder}
-            pageSize={movementPageSize}
-            onPageSize={(value) => {
-              setMovementPageSize(value);
-              setMovementPage(1);
-            }}
-            variants={detail.variants.map((variant) => ({
-              id: variant.id,
-              nameZh: variant.name,
-            }))}
-            variantId={movementVariantId}
-            onVariantId={(value) => {
-              setMovementVariantId(value);
-              setMovementPage(1);
-            }}
-          />
-          {movements.data.rows.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-400">{t("inventory.noMovements")}</p>
-          ) : (
-          <>
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementTime")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementVariant")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementType")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementQty")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementAfter")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementActor")}</th>
-                <th className="px-3 py-2 font-semibold">{t("inventory.movementNote")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movements.data.rows.map((movement) => (
-                <tr key={movement.id} className="border-b border-ink/5">
-                  <td className="px-3 py-2 text-xs text-slate-500">
-                    {new Date(movement.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">{movement.variantName ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    {MOVEMENT_LABELS[movement.type] ?? movement.type}
-                  </td>
-                  <td className="px-3 py-2 font-mono">
-                    {movement.quantity > 0 ? `+${movement.quantity}` : movement.quantity}
-                  </td>
-                  <td className="px-3 py-2 font-mono">{movement.resultQuantity}</td>
-                  <td className="px-3 py-2 text-xs text-slate-500">
-                    {movement.actorName ?? movement.actorId}
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {movement.orderId && movement.orderDisplayNumber ? (
-                      <span>
-                        <Link
-                          to={`/orders/${movement.orderId}`}
-                          className="text-indigo-600 underline-offset-2 hover:underline"
-                        >
-                          {movement.orderDisplayNumber}
-                        </Link>
-                        -{MOVEMENT_LABELS[movement.type] ?? movement.type}
-                      </span>
-                    ) : (
-                      <span className="text-slate-500">{movement.note ?? "—"}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {t("common.page", {
-                page: movements.data.page,
-                pageCount: Math.max(1, Math.ceil(movements.data.total / movements.data.pageSize)),
-                total: movements.data.total,
-              })}
-            </span>
-            <span className="flex gap-1.5">
-              <button
-                type="button"
-                disabled={movements.data.page <= 1}
-                onClick={() => setMovementPage((current) => Math.max(1, current - 1))}
-                className="rounded border border-ink/20 px-2 py-1 hover:bg-pill disabled:opacity-40"
-              >
-                {t("common.previous")}
-              </button>
-              <button
-                type="button"
-                disabled={
-                  movements.data.page >=
-                  Math.max(1, Math.ceil(movements.data.total / movements.data.pageSize))
-                }
-                onClick={() => setMovementPage((current) => current + 1)}
-                className="rounded border border-ink/20 px-2 py-1 hover:bg-pill disabled:opacity-40"
-              >
-                {t("common.next")}
-              </button>
-            </span>
-          </div>
-          </>
-          )}
+            <MovementFilterBar
+              type={movementType}
+              onType={(value) => {
+                setMovementType(value);
+                setMovementPage(1);
+              }}
+              order={movementOrder}
+              onOrder={setMovementOrder}
+              pageSize={movementPageSize}
+              onPageSize={(value) => {
+                setMovementPageSize(value);
+                setMovementPage(1);
+              }}
+              variants={detail.variants.map((variant) => ({
+                id: variant.id,
+                nameZh: variant.name,
+              }))}
+              variantId={movementVariantId}
+              onVariantId={(value) => {
+                setMovementVariantId(value);
+                setMovementPage(1);
+              }}
+            />
+            {movements.data.rows.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-400">
+                {t("inventory.noMovements")}
+              </p>
+            ) : (
+              <>
+                <table className="mt-2 w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementTime")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementVariant")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementType")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementQty")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementAfter")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementActor")}
+                      </th>
+                      <th className="px-3 py-2 font-semibold">
+                        {t("inventory.movementNote")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movements.data.rows.map((movement) => (
+                      <tr key={movement.id} className="border-b border-ink/5">
+                        <td className="px-3 py-2 text-xs text-slate-500">
+                          {new Date(movement.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">
+                          {movement.variantName ?? "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {MOVEMENT_LABELS[movement.type] ?? movement.type}
+                        </td>
+                        <td className="px-3 py-2 font-mono">
+                          {movement.quantity > 0
+                            ? `+${movement.quantity}`
+                            : movement.quantity}
+                        </td>
+                        <td className="px-3 py-2 font-mono">
+                          {movement.resultQuantity}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500">
+                          {movement.actorName ?? movement.actorId}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {movement.orderId && movement.orderDisplayNumber ? (
+                            <span>
+                              <Link
+                                to={`/orders/${movement.orderId}`}
+                                className="text-indigo-600 underline-offset-2 hover:underline"
+                              >
+                                {movement.orderDisplayNumber}
+                              </Link>
+                              -{MOVEMENT_LABELS[movement.type] ?? movement.type}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">
+                              {movement.note ?? "—"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>
+                    {t("common.page", {
+                      page: movements.data.page,
+                      pageCount: Math.max(
+                        1,
+                        Math.ceil(
+                          movements.data.total / movements.data.pageSize,
+                        ),
+                      ),
+                      total: movements.data.total,
+                    })}
+                  </span>
+                  <span className="flex gap-1.5">
+                    <button
+                      type="button"
+                      disabled={movements.data.page <= 1}
+                      onClick={() =>
+                        setMovementPage((current) => Math.max(1, current - 1))
+                      }
+                      className="rounded border border-ink/20 px-2 py-1 hover:bg-pill disabled:opacity-40"
+                    >
+                      {t("common.previous")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        movements.data.page >=
+                        Math.max(
+                          1,
+                          Math.ceil(
+                            movements.data.total / movements.data.pageSize,
+                          ),
+                        )
+                      }
+                      onClick={() => setMovementPage((current) => current + 1)}
+                      className="rounded border border-ink/20 px-2 py-1 hover:bg-pill disabled:opacity-40"
+                    >
+                      {t("common.next")}
+                    </button>
+                  </span>
+                </div>
+              </>
+            )}
           </>
         ) : (
           <p className="text-sm text-slate-400">{t("inventory.noMovements")}</p>

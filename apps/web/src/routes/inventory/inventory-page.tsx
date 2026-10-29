@@ -2,11 +2,19 @@ import { useState } from "react";
 import { Navigate, useNavigate, useRouteLoaderData } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { PageHeader, Card, Badge, EmptyState, buttonClasses } from "../../components/ui";
+import {
+  PageHeader,
+  Card,
+  Badge,
+  EmptyState,
+  buttonClasses,
+} from "../../components/ui";
 import { Modal } from "../../components/modal";
 import { api } from "../../api-client/client";
 import type { rootLoader } from "../../layouts/root-loader";
-import { warehouseDisplayName, firstImageUrl } from "./naming";
+import { ImagePreviewButton } from "../items/image-preview";
+import { isActiveInWarehouse } from "./warehouse-stock";
+import { warehouseDisplayName } from "./naming";
 
 interface StockRow {
   warehouse: string;
@@ -21,6 +29,7 @@ interface VariantView {
   name: string;
   nameEn: string;
   archivedAt: string | null;
+  images: unknown;
   stocks: StockRow[];
   total: number;
   low: boolean;
@@ -55,8 +64,10 @@ const EMPTY_VARIANT: VariantForm = { name: "", nameEn: "" };
 export function InventoryRedirect() {
   const root = useRouteLoaderData<typeof rootLoader>("root");
   const perms = new Set(root?.user.permissions ?? []);
-  const canChina = perms.has("inventory:read") || perms.has("inventory:china:read");
-  const canCanada = perms.has("inventory:read") || perms.has("inventory:canada:read");
+  const canChina =
+    perms.has("inventory:read") || perms.has("inventory:china:read");
+  const canCanada =
+    perms.has("inventory:read") || perms.has("inventory:canada:read");
   if (canChina) return <Navigate to="/inventory/china" replace />;
   if (canCanada) return <Navigate to="/inventory/canada" replace />;
   return <EmptyState message="inventory:china:read / inventory:canada:read" />;
@@ -103,16 +114,18 @@ export default function InventoryPage({
     { mode: "create" } | { mode: "edit"; id: string; name: string } | null
   >(null);
   const [itemForm, setItemForm] = useState<ItemForm>(EMPTY_ITEM);
-  const [variantModal, setVariantModal] = useState<{ itemId: string; itemName: string } | null>(
-    null,
-  );
+  const [variantModal, setVariantModal] = useState<{
+    itemId: string;
+    itemName: string;
+  } | null>(null);
   const [variantForm, setVariantForm] = useState<VariantForm>(EMPTY_VARIANT);
 
   const items = useQuery({
     queryKey: ["inventory-items"],
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/inventory/items");
-      if (!response.ok || !data) throw new Error(`Load failed (${response.status})`);
+      if (!response.ok || !data)
+        throw new Error(`Load failed (${response.status})`);
       return data as unknown as ItemView[];
     },
   });
@@ -140,9 +153,7 @@ export default function InventoryPage({
     .filter((item) => !item.archivedAt)
     .map((item) => ({
       ...item,
-      variants: item.variants.filter(
-        (v) => !v.archivedAt && !archivedIn(v, warehouse),
-      ),
+      variants: item.variants.filter((v) => isActiveInWarehouse(v, warehouse)),
     }));
   const archivedItems = filtered.filter((item) => item.archivedAt);
   // Catalog-archived variants…
@@ -151,7 +162,11 @@ export default function InventoryPage({
     .flatMap((item) =>
       item.variants
         .filter((variant) => variant.archivedAt)
-        .map((variant) => ({ ...variant, itemId: item.id, itemName: item.name })),
+        .map((variant) => ({
+          ...variant,
+          itemId: item.id,
+          itemName: item.name,
+        })),
     );
   // …and variants archived in THIS warehouse only (the same product may
   // stay active in the other warehouse).
@@ -159,7 +174,9 @@ export default function InventoryPage({
     .filter((item) => !item.archivedAt)
     .flatMap((item) =>
       item.variants
-        .filter((variant) => !variant.archivedAt && archivedIn(variant, warehouse))
+        .filter(
+          (variant) => !variant.archivedAt && archivedIn(variant, warehouse),
+        )
         .map((variant) => ({ variant, itemId: item.id, itemName: item.name })),
     );
 
@@ -178,11 +195,15 @@ export default function InventoryPage({
     if (!stockAction || !quantity) return;
     setBusy(true);
     setError(null);
-    const delta = stockAction.action === "in" ? Number(quantity) : -Number(quantity);
-    const { response, error } = await api.POST("/api/v1/inventory/variants/{variantId}/adjust", {
-      params: { path: { variantId: stockAction.variantId } },
-      body: { warehouse, delta, note: note || undefined } as never,
-    });
+    const delta =
+      stockAction.action === "in" ? Number(quantity) : -Number(quantity);
+    const { response, error } = await api.POST(
+      "/api/v1/inventory/variants/{variantId}/adjust",
+      {
+        params: { path: { variantId: stockAction.variantId } },
+        body: { warehouse, delta, note: note || undefined } as never,
+      },
+    );
     setBusy(false);
     if (!response.ok) {
       fail(error, t("inventory.adjustFailed"));
@@ -222,7 +243,10 @@ export default function InventoryPage({
     setError(null);
     const { response, error } = await api.POST("/api/v1/items/{id}/variants", {
       params: { path: { id: variantModal.itemId } },
-      body: { name: variantForm.name, nameEn: variantForm.nameEn || undefined } as never,
+      body: {
+        name: variantForm.name,
+        nameEn: variantForm.nameEn || undefined,
+      } as never,
     });
     setBusy(false);
     if (!response.ok) {
@@ -286,10 +310,13 @@ export default function InventoryPage({
   const restoreVariantRow = async (itemId: string, variantId: string) => {
     setBusy(true);
     setError(null);
-    const { response, error } = await api.POST("/api/v1/items/{id}/variants/{variantId}/restore", {
-      params: { path: { id: itemId, variantId } },
-      body: {} as never,
-    });
+    const { response, error } = await api.POST(
+      "/api/v1/items/{id}/variants/{variantId}/restore",
+      {
+        params: { path: { id: itemId, variantId } },
+        body: {} as never,
+      },
+    );
     setBusy(false);
     if (!response.ok) {
       fail(error, t("inventory.actionFailed"));
@@ -310,10 +337,13 @@ export default function InventoryPage({
       return;
     setBusy(true);
     setError(null);
-    const { response, error } = await api.POST("/api/v1/inventory/variants/{variantId}/archive", {
-      params: { path: { variantId } },
-      body: { warehouse } as never,
-    });
+    const { response, error } = await api.POST(
+      "/api/v1/inventory/variants/{variantId}/archive",
+      {
+        params: { path: { variantId } },
+        body: { warehouse } as never,
+      },
+    );
     setBusy(false);
     if (!response.ok) {
       fail(error, t("inventory.actionFailed"));
@@ -351,13 +381,19 @@ export default function InventoryPage({
     refresh();
   };
 
-  const restoreVariantInWarehouse = async (variantId: string, targetWarehouse: string) => {
+  const restoreVariantInWarehouse = async (
+    variantId: string,
+    targetWarehouse: string,
+  ) => {
     setBusy(true);
     setError(null);
-    const { response, error } = await api.POST("/api/v1/inventory/variants/{variantId}/restore", {
-      params: { path: { variantId } },
-      body: { warehouse: targetWarehouse } as never,
-    });
+    const { response, error } = await api.POST(
+      "/api/v1/inventory/variants/{variantId}/restore",
+      {
+        params: { path: { variantId } },
+        body: { warehouse: targetWarehouse } as never,
+      },
+    );
     setBusy(false);
     if (!response.ok) {
       fail(error, t("inventory.actionFailed"));
@@ -369,9 +405,12 @@ export default function InventoryPage({
   const deleteVariantRow = async (itemId: string, variantId: string) => {
     setBusy(true);
     setError(null);
-    const { response, error } = await api.DELETE("/api/v1/items/{id}/variants/{variantId}", {
-      params: { path: { id: itemId, variantId } },
-    });
+    const { response, error } = await api.DELETE(
+      "/api/v1/items/{id}/variants/{variantId}",
+      {
+        params: { path: { id: itemId, variantId } },
+      },
+    );
     setBusy(false);
     if (!response.ok) {
       fail(error, t("inventory.actionFailed"));
@@ -436,7 +475,11 @@ export default function InventoryPage({
         }
       />
 
-      {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <div className="flex overflow-hidden rounded-xl border border-ink/15">
@@ -451,7 +494,9 @@ export default function InventoryPage({
                   : "bg-white text-slate-600 hover:bg-pill hover:text-ink"
               }`}
             >
-              {t(archivedView ? "inventory.tabArchived" : "inventory.tabActive")}
+              {t(
+                archivedView ? "inventory.tabArchived" : "inventory.tabActive",
+              )}
             </button>
           ))}
         </div>
@@ -464,7 +509,9 @@ export default function InventoryPage({
       </div>
 
       {items.isLoading ? (
-        <Card><p className="text-sm text-slate-400">{t("common.loading")}</p></Card>
+        <Card>
+          <p className="text-sm text-slate-400">{t("common.loading")}</p>
+        </Card>
       ) : items.isError ? (
         <p className="text-sm text-red-600">{(items.error as Error).message}</p>
       ) : !showArchived ? (
@@ -478,27 +525,22 @@ export default function InventoryPage({
               return (
                 <Card key={item.id}>
                   <div className="flex flex-wrap items-center gap-2">
-                    {firstImageUrl(item.images) ? (
-                      <img
-                        src={firstImageUrl(item.images) ?? ""}
-                        loading="lazy"
-                        decoding="async"
-                        alt={item.name}
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
-                        }}
-                        className="h-10 w-10 shrink-0 rounded-lg border border-ink/10 object-cover"
-                      />
-                    ) : null}
+                    <ImagePreviewButton
+                      images={item.images}
+                      name={warehouseDisplayName(item, warehouse)}
+                    />
                     <button
                       type="button"
-                      onClick={() => navigate(`/inventory/${item.id}?warehouse=${warehouse}`)}
+                      onClick={() =>
+                        navigate(`/inventory/${item.id}?warehouse=${warehouse}`)
+                      }
                       className="font-display text-base font-semibold text-ink underline-offset-2 hover:underline"
                     >
                       {warehouseDisplayName(item, warehouse)}
                     </button>
                     <span className="ml-auto text-sm text-slate-600">
-                      {t("inventory.total")}: <span className="font-semibold">{itemTotal}</span>
+                      {t("inventory.total")}:{" "}
+                      <span className="font-semibold">{itemTotal}</span>
                     </span>
                     {canUpdateItems ? (
                       <button
@@ -506,7 +548,10 @@ export default function InventoryPage({
                         disabled={busy}
                         onClick={() => {
                           setVariantForm(EMPTY_VARIANT);
-                          setVariantModal({ itemId: item.id, itemName: item.name });
+                          setVariantModal({
+                            itemId: item.id,
+                            itemName: item.name,
+                          });
                         }}
                         className="rounded-lg border border-ink/20 bg-white px-2.5 py-1 text-xs hover:bg-pill disabled:opacity-50"
                       >
@@ -519,7 +564,11 @@ export default function InventoryPage({
                         disabled={busy}
                         onClick={() => {
                           setItemForm({ name: item.name, nameEn: item.nameEn });
-                          setItemModal({ mode: "edit", id: item.id, name: item.name });
+                          setItemModal({
+                            mode: "edit",
+                            id: item.id,
+                            name: item.name,
+                          });
                         }}
                         className="rounded-lg border border-ink/20 bg-white px-2.5 py-1 text-xs hover:bg-pill disabled:opacity-50"
                       >
@@ -550,34 +599,48 @@ export default function InventoryPage({
                   <table className="mt-2 w-full border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
-                        <th className="px-2 py-1.5 font-semibold">{t("inventory.variantColumn")}</th>
+                        <th className="px-2 py-1.5 font-semibold">
+                          {t("inventory.variantColumn")}
+                        </th>
                         <th className="px-2 py-1.5 font-semibold">
                           {t(`inventory.warehouse.${warehouse}`)}
                         </th>
-                        <th className="px-2 py-1.5 font-semibold text-right">{t("common.actions")}</th>
+                        <th className="px-2 py-1.5 font-semibold text-right">
+                          {t("common.actions")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {item.variants.map((variant) => (
                         <tr key={variant.id} className="border-b border-ink/5">
                           <td className="px-2 py-1.5">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(`/inventory/variant/${variant.id}?warehouse=${warehouse}`)
-                              }
-                              className="font-medium text-ink underline-offset-2 hover:underline"
-                            >
-                              {warehouseDisplayName(variant, warehouse)}
-                            </button>
-                            {variant.stocks.some(
-                              (stock) =>
-                                stock.warehouse === warehouse &&
-                                stock.lowThreshold != null &&
-                                stock.quantity <= stock.lowThreshold,
-                            ) ? (
-                              <Badge tone="danger">{t("inventory.low")}</Badge>
-                            ) : null}
+                            <div className="flex items-center gap-2">
+                              <ImagePreviewButton
+                                images={variant.images}
+                                name={warehouseDisplayName(variant, warehouse)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/inventory/variant/${variant.id}?warehouse=${warehouse}`,
+                                  )
+                                }
+                                className="font-medium text-ink underline-offset-2 hover:underline"
+                              >
+                                {warehouseDisplayName(variant, warehouse)}
+                              </button>
+                              {variant.stocks.some(
+                                (stock) =>
+                                  stock.warehouse === warehouse &&
+                                  stock.lowThreshold != null &&
+                                  stock.quantity <= stock.lowThreshold,
+                              ) ? (
+                                <Badge tone="danger">
+                                  {t("inventory.low")}
+                                </Badge>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-2 py-1.5 font-mono font-semibold">
                             {stockOf(variant, warehouse)}
@@ -593,7 +656,10 @@ export default function InventoryPage({
                                       onClick={() =>
                                         setStockAction({
                                           variantId: variant.id,
-                                          variantName: warehouseDisplayName(variant, warehouse),
+                                          variantName: warehouseDisplayName(
+                                            variant,
+                                            warehouse,
+                                          ),
                                           action: "in",
                                         })
                                       }
@@ -607,7 +673,10 @@ export default function InventoryPage({
                                       onClick={() =>
                                         setStockAction({
                                           variantId: variant.id,
-                                          variantName: warehouseDisplayName(variant, warehouse),
+                                          variantName: warehouseDisplayName(
+                                            variant,
+                                            warehouse,
+                                          ),
                                           action: "out",
                                         })
                                       }
@@ -637,7 +706,10 @@ export default function InventoryPage({
                       ))}
                       {item.variants.length === 0 ? (
                         <tr>
-                          <td colSpan={3} className="px-2 py-2 text-xs text-slate-400">
+                          <td
+                            colSpan={3}
+                            className="px-2 py-2 text-xs text-slate-400"
+                          >
                             {t("inventory.noVariants")}
                           </td>
                         </tr>
@@ -669,7 +741,11 @@ export default function InventoryPage({
                   disabled={busy}
                   onClick={() => {
                     if (
-                      !window.confirm(t("inventory.batchDeleteConfirm", { count: selected.size }))
+                      !window.confirm(
+                        t("inventory.batchDeleteConfirm", {
+                          count: selected.size,
+                        }),
+                      )
                     )
                       return;
                     void batchDelete();
@@ -683,7 +759,10 @@ export default function InventoryPage({
             {archivedItems.length > 0 ? (
               <ul className="mt-2 divide-y divide-ink/5">
                 {archivedItems.map((item) => (
-                  <li key={item.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center gap-2 py-2 text-sm"
+                  >
                     {canDeleteItems ? (
                       <input
                         type="checkbox"
@@ -698,9 +777,13 @@ export default function InventoryPage({
                         }
                       />
                     ) : null}
-                    <span className="font-medium">{warehouseDisplayName(item, "china")}</span>
+                    <span className="font-medium">
+                      {warehouseDisplayName(item, "china")}
+                    </span>
                     <span className="text-xs text-slate-400">
-                      {t("inventory.variantCount", { count: item.variants.length })}
+                      {t("inventory.variantCount", {
+                        count: item.variants.length,
+                      })}
                     </span>
                     <span className="ml-auto flex gap-1.5">
                       {canArchiveItems ? (
@@ -720,7 +803,9 @@ export default function InventoryPage({
                           onClick={() => {
                             if (
                               !window.confirm(
-                                t("inventory.deleteItemConfirm", { name: item.name }),
+                                t("inventory.deleteItemConfirm", {
+                                  name: item.name,
+                                }),
                               )
                             )
                               return;
@@ -736,7 +821,9 @@ export default function InventoryPage({
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-slate-400">{t("inventory.archivedEmpty")}</p>
+              <p className="mt-2 text-sm text-slate-400">
+                {t("inventory.archivedEmpty")}
+              </p>
             )}
           </Card>
           {warehouseArchivedVariants.length > 0 ? (
@@ -746,10 +833,15 @@ export default function InventoryPage({
               </span>
               <ul className="mt-2 divide-y divide-ink/5">
                 {warehouseArchivedVariants.map(({ variant, itemName }) => (
-                  <li key={variant.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
+                  <li
+                    key={variant.id}
+                    className="flex flex-wrap items-center gap-2 py-2 text-sm"
+                  >
                     <span className="text-xs text-slate-400">{itemName}</span>
                     <span className="text-slate-400">/</span>
-                    <span className="font-medium">{warehouseDisplayName(variant)}</span>
+                    <span className="font-medium">
+                      {warehouseDisplayName(variant)}
+                    </span>
                     <span className="rounded bg-ink/10 px-1.5 py-0.5 text-xs text-ink">
                       {t(`inventory.warehouse.${warehouse}`)}
                     </span>
@@ -757,7 +849,9 @@ export default function InventoryPage({
                       <button
                         type="button"
                         disabled={busy || !canManageWarehouse}
-                        onClick={() => void restoreVariantInWarehouse(variant.id, warehouse)}
+                        onClick={() =>
+                          void restoreVariantInWarehouse(variant.id, warehouse)
+                        }
                         className="rounded border border-ink/20 px-2 py-0.5 text-xs hover:bg-pill disabled:opacity-50"
                       >
                         {t("inventory.restore")}
@@ -770,8 +864,9 @@ export default function InventoryPage({
                             void deleteWarehouseStockRow(
                               variant.id,
                               warehouseDisplayName(variant),
-                              variant.stocks.find((stock) => stock.warehouse === warehouse)
-                                ?.quantity ?? 0,
+                              variant.stocks.find(
+                                (stock) => stock.warehouse === warehouse,
+                              )?.quantity ?? 0,
                             )
                           }
                           className="rounded border border-red-300 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
@@ -792,16 +887,25 @@ export default function InventoryPage({
               </span>
               <ul className="mt-2 divide-y divide-ink/5">
                 {archivedVariants.map((variant) => (
-                  <li key={variant.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-                    <span className="text-xs text-slate-400">{variant.itemName}</span>
+                  <li
+                    key={variant.id}
+                    className="flex flex-wrap items-center gap-2 py-2 text-sm"
+                  >
+                    <span className="text-xs text-slate-400">
+                      {variant.itemName}
+                    </span>
                     <span className="text-slate-400">/</span>
-                    <span className="font-medium">{warehouseDisplayName(variant, "china")}</span>
+                    <span className="font-medium">
+                      {warehouseDisplayName(variant, "china")}
+                    </span>
                     <span className="ml-auto flex gap-1.5">
                       {canArchiveItems ? (
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void restoreVariantRow(variant.itemId, variant.id)}
+                          onClick={() =>
+                            void restoreVariantRow(variant.itemId, variant.id)
+                          }
                           className="rounded border border-ink/20 px-2 py-0.5 text-xs hover:bg-pill disabled:opacity-50"
                         >
                           {t("inventory.restore")}
@@ -814,7 +918,9 @@ export default function InventoryPage({
                           onClick={() => {
                             if (
                               !window.confirm(
-                                t("inventory.deleteVariantConfirm", { name: variant.name }),
+                                t("inventory.deleteVariantConfirm", {
+                                  name: variant.name,
+                                }),
                               )
                             )
                               return;
@@ -893,7 +999,9 @@ export default function InventoryPage({
               {t("inventory.nameZhLabel")}
               <input
                 value={itemForm.name}
-                onChange={(event) => setItemForm({ ...itemForm, name: event.target.value })}
+                onChange={(event) =>
+                  setItemForm({ ...itemForm, name: event.target.value })
+                }
                 className="mt-1 w-full rounded-lg border border-ink/20 px-2 py-1.5"
               />
             </label>
@@ -901,7 +1009,9 @@ export default function InventoryPage({
               {t("inventory.nameEnLabel")}
               <input
                 value={itemForm.nameEn}
-                onChange={(event) => setItemForm({ ...itemForm, nameEn: event.target.value })}
+                onChange={(event) =>
+                  setItemForm({ ...itemForm, nameEn: event.target.value })
+                }
                 className="mt-1 w-full rounded-lg border border-ink/20 px-2 py-1.5"
               />
             </label>

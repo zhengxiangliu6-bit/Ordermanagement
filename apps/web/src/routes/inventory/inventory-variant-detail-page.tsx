@@ -274,7 +274,7 @@ export default function InventoryVariantDetailPage() {
             {t(`inventory.warehouse.${warehouse}`)}:{" "}
             <span className="font-mono">{stockOf(warehouse)}</span>
           </span>
-          {variant.low ? <Badge tone="danger">{t("inventory.low")}</Badge> : null}
+          {variant.stocks.some((stock) => stock.warehouse === warehouse && stock.lowThreshold != null && stock.quantity <= stock.lowThreshold) ? <Badge tone="danger">{t("inventory.low")}</Badge> : null}
           {archived ? <Badge tone="neutral">{t("common.archived")}</Badge> : null}
           {!archived && (canManageWarehouse || canUpdateItems) ? (
             <span className="ml-auto flex flex-wrap gap-1.5">
@@ -349,10 +349,8 @@ export default function InventoryVariantDetailPage() {
         </div>
       </Card>
 
-      <ItemImages
-        name={displayName}
-        images={imageUrls(variant.images).length > 0 ? variant.images : (variant.item as unknown as { images?: unknown }).images}
-      />
+      <ItemImages title={t("inventory.productImages")} name={itemDisplayName} images={variant.item.images} />
+      {imageUrls(variant.images).length > 0 && <ItemImages title={t("inventory.variantImages")} name={displayName} images={variant.images} />}
 
       <Card>
         <div className="flex flex-wrap items-center gap-2">

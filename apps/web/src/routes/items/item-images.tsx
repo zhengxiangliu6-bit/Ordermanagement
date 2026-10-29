@@ -10,9 +10,11 @@ import { imageUrls } from "./image-urls-editor";
 export function ItemImages({
   images,
   name,
+  title,
 }: {
   images: unknown;
   name: string;
+  title?: string;
 }) {
   const { t } = useTranslation();
   const urls = imageUrls(images).filter(isImageSource);
@@ -24,7 +26,7 @@ export function ItemImages({
     <section className="mt-5 rounded-xl border border-ink/10 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="font-semibold">
-          {t("items.gallery")}{" "}
+          {title ?? t("items.gallery")}{" "}
           <span className="text-sm font-normal text-slate-400">
             ({urls.length})
           </span>
