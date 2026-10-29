@@ -1,3 +1,4 @@
+import { LineImagePreviews } from "../items/line-image-previews";
 import { useState } from "react";
 import { useNavigate, useParams, useRouteLoaderData } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -393,8 +394,8 @@ export default function OrderDetailPage() {
               <Card title={t("orders.orderLines")}>
                 <ul className="divide-y divide-ink/5">
                   {(order.lines ?? []).map((line) => (
-                    <li key={line.id} className="flex items-baseline gap-3 py-2 text-sm">
-                      <span className="font-medium text-ink">{line.title ?? "—"}</span>
+                    <li key={line.id} className="flex items-start gap-3 py-2 text-sm">
+                      <div className="min-w-0 space-y-2"><span className="font-medium text-ink">{line.title ?? "—"}</span><LineImagePreviews line={line} name={line.title ?? line.itemVariant?.name ?? ""} /></div>
                       <span className="font-mono text-[13px] text-slate-500">× {line.quantity}</span>
                       {line.itemVariant ? (
                         <span className="ml-auto font-mono text-xs text-slate-400">

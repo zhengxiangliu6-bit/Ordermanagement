@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ShippingWorkService } from '../shipping/shipping-work.service';
 import { ReviewService } from '../review/review.service';
+import { OrdersService } from './orders.service';
 import { MappingService } from '../mapping/mapping.service';
 
 vi.mock('../prisma/prisma.service', () => ({ PrismaService: class {} }));
@@ -25,10 +26,8 @@ const line = {
 };
 
 describe('workflow image projections', () => {
-  it('projects historical images into packing and inspection queues without returning entire snapshots', async () => {
-    const findMany = vi
-      .fn()
-      .mockResolvedValue([{ id: 'order', lines: [line] }]);
+  it('does not fetch image snapshots in shipping-work queues', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
     const service = new ShippingWorkService(
       { order: { findMany } } as never,
       {} as never,
@@ -36,26 +35,17 @@ describe('workflow image projections', () => {
       {} as never,
       {} as never,
     );
-    for (const orders of [
-      await service.packingQueue(),
-      await service.inspectionQueue(),
-    ]) {
-      expect(orders[0].lines[0]).toMatchObject({
-        variantImages: [historical],
-        variantImageSource: 'snapshot',
-      });
-      expect(orders[0].lines[0].itemContentVersion).toBeUndefined();
+    await service.packingQueue();
+    await service.inspectionQueue();
+    for (const [query] of findMany.mock.calls) {
+      expect(query.include.lines.select.itemContentVersion).toBeUndefined();
+      expect(
+        query.include.lines.select.itemVariant.select.images,
+      ).toBeUndefined();
     }
-    expect(
-      findMany.mock.calls[0][0].include.lines.select.itemContentVersion,
-    ).toEqual({ select: { snapshot: true } });
-    expect(
-      findMany.mock.calls[0][0].include.addOns.include.itemVariant.select
-        .images,
-    ).toBe(true);
   });
 
-  it('batch-enriches new-order review lines with their linked historical images', async () => {
+  it('does not enrich unfulfilled order review with image data', async () => {
     const prisma = {
       reviewRecord: {
         findMany: vi
@@ -65,9 +55,7 @@ describe('workflow image projections', () => {
           ]),
         count: vi.fn().mockResolvedValue(1),
       },
-      order: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'order', lines: [line] }]),
-      },
+      order: { findMany: vi.fn() },
       $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
     };
     const service = new ReviewService(
@@ -77,16 +65,46 @@ describe('workflow image projections', () => {
       {} as never,
     );
     const result = await service.list('new_order', undefined, 1, 20);
-    expect(result.records[0]).toMatchObject({
-      orderLines: [
-        {
-          id: 'line',
-          variantImages: [historical],
-          variantImageSource: 'snapshot',
-        },
-      ],
+    expect(result.records[0]).not.toHaveProperty('orderLines');
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
+  });
+
+  it('projects pictures into the actual order detail endpoint response and preserves version metadata', async () => {
+    const version = {
+      ...line.itemContentVersion,
+      id: 'version',
+      effectiveAt: new Date('2026-10-29'),
+    };
+    const findUnique = vi
+      .fn()
+      .mockResolvedValue({
+        id: 'order',
+        lines: [{ ...line, itemContentVersion: version }],
+        stageEvents: [],
+        problemItems: [],
+      });
+    const service = new OrdersService(
+      { order: { findUnique } } as never,
+      {} as never,
+      {} as never,
+    );
+    const result = await service.get('order');
+    expect(result.lines[0]).toMatchObject({
+      variantImages: [historical],
+      variantImageSource: 'snapshot',
     });
-    expect(prisma.order.findMany).toHaveBeenCalledOnce();
+    expect(result.lines[0].itemContentVersion).toEqual({
+      id: version.id,
+      effectiveAt: version.effectiveAt,
+    });
+    expect(
+      findUnique.mock.calls[0][0].include.lines.include.itemContentVersion
+        .select.snapshot,
+    ).toBe(true);
+    expect(
+      findUnique.mock.calls[0][0].include.lines.include.itemVariant.select.item
+        .select.images,
+    ).toBe(true);
   });
 
   it('keeps platform and system images separate in mapped and unmapped responses', async () => {

@@ -28,15 +28,6 @@ export function platformImages(snapshot: unknown, externalVariantId: string) {
     platformProductImages: imageLinks(data.images),
   };
 }
-export const orderLineImageInclude = {
-  itemVariant: {
-    select: { id: true, itemCode: true, name: true, images: true },
-  },
-  itemContentVersion: { select: { snapshot: true } },
-  listingVariant: { select: { externalVariantId: true } },
-  listingContentVersion: { select: { snapshot: true } },
-} as const;
-
 /** Snapshot presence is authoritative: never replace an empty historical image with today's catalog image. */
 export function orderLineImages(line: unknown) {
   const data = object(line),
@@ -63,11 +54,35 @@ export function orderLineImages(line: unknown) {
   };
 }
 
-export function presentOrderLineImages<T extends object>(line: T) {
+/** Order detail may show today's photos as a separately labeled reference when old snapshots are empty. */
+export function orderDetailLineImages(line: unknown) {
+  const historical = orderLineImages(line);
+  const data = object(line),
+    current = object(data.itemVariant);
+  const snapshot = object(object(data.itemContentVersion).snapshot);
+  const productImages = imageLinks(snapshot.images);
+  const listingVariant = object(data.listingVariant);
+  const currentPlatform = platformImages(
+    object(object(listingVariant.listing).currentVersion).snapshot,
+    String(listingVariant.externalVariantId ?? ''),
+  );
   return {
-    ...line,
-    ...orderLineImages(line),
-    itemContentVersion: undefined,
-    listingContentVersion: undefined,
+    ...historical,
+    productImages,
+    currentPlatformVariantImages:
+      historical.platformVariantImages.length === 0
+        ? currentPlatform.platformVariantImages
+        : [],
+    currentPlatformProductImages:
+      historical.platformProductImages.length === 0
+        ? currentPlatform.platformProductImages
+        : [],
+    currentVariantImages:
+      historical.variantImageSource === 'snapshot' &&
+      historical.variantImages.length === 0
+        ? imageLinks(current.images)
+        : [],
+    currentProductImages:
+      productImages.length === 0 ? imageLinks(object(current.item).images) : [],
   };
 }

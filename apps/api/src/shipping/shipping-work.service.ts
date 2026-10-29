@@ -1,4 +1,3 @@
-import { orderLineImageInclude, presentOrderLineImages } from '../orders/order-line-images';
 import {
   ConflictException,
   Injectable,
@@ -26,7 +25,7 @@ const queueOrderInclude = {
       id: true,
       title: true,
       quantity: true,
-      ...orderLineImageInclude,
+      itemVariant: { select: { itemCode: true, name: true } },
     },
   },
   notes: {
@@ -35,7 +34,7 @@ const queueOrderInclude = {
   },
   addOns: {
     orderBy: { createdAt: 'asc' as const },
-    include: { itemVariant: { select: { id: true, itemCode: true, name: true, images: true } } },
+    include: { itemVariant: { select: { id: true, itemCode: true, name: true } } },
   },
 } satisfies Prisma.OrderInclude;
 
@@ -64,7 +63,7 @@ export class ShippingWorkService {
       },
       orderBy: { createdAt: 'desc' },
       include: queueOrderInclude,
-    }).then((orders) => orders.map((order) => ({ ...order, lines: order.lines.map(presentOrderLineImages) })));
+    });
   }
 
   /** Stage 2 queue: packed orders waiting for carrier + tracking. */
@@ -82,7 +81,7 @@ export class ShippingWorkService {
         shipments: { where: { voidedAt: null }, include: queueShipmentInclude },
       },
     });
-    return orders.map((order) => ({ ...order, lines: order.lines.map(presentOrderLineImages) }));
+    return orders;
   }
 
   /** Stage 3 queue: tracking entered, waiting for spot-check. */
@@ -100,7 +99,7 @@ export class ShippingWorkService {
         shipments: { where: { voidedAt: null }, include: queueShipmentInclude },
       },
     });
-    return orders.map((order) => ({ ...order, lines: order.lines.map(presentOrderLineImages) }));
+    return orders;
   }
 
   /** Completed cross-border shipments still missing tail tracking. */
@@ -261,7 +260,7 @@ export class ShippingWorkService {
         note: dto.note?.trim() || null,
         addedBy: userId,
       },
-      include: { itemVariant: { select: { id: true, itemCode: true, name: true, images: true } } },
+      include: { itemVariant: { select: { id: true, itemCode: true, name: true } } },
     });
     await this.audit.record({
       actorId: userId,

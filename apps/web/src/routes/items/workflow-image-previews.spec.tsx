@@ -1,3 +1,4 @@
+import OrderDetailPage from "../orders/order-detail-page";
 import { Modal } from "../../components/modal";
 import { LineImagePreviews } from "./line-image-previews";
 import type { ReactNode } from "react";
@@ -21,7 +22,7 @@ const line = {
   platformVariantImages: [],
   platformProductImages: [],
 };
-function show(element: ReactNode) {
+function show(element: ReactNode, path = "/", entry = "/") {
   const user = {
     permissions: [
       "items:read",
@@ -33,9 +34,9 @@ function show(element: ReactNode) {
     ],
   };
   const router = createMemoryRouter(
-    [{ id: "root", element: <Outlet />, children: [{ path: "/", element }] }],
+    [{ id: "root", element: <Outlet />, children: [{ path, element }] }],
     {
-      initialEntries: ["/"],
+      initialEntries: [entry],
       hydrationData: { loaderData: { root: { user } } },
     },
   );
@@ -54,8 +55,8 @@ beforeEach(() => {
 });
 
 describe("workflow image previews", () => {
-  it.each(["packing", "inspection"] as const)(
-    "shows snapshot images in the %s work queue",
+  it.each(["packing", "ordering", "inspection"] as const)(
+    "does not display image previews in the %s work queue",
     async (tab) => {
       vi.mocked(api.GET).mockImplementation(
         async (path) =>
@@ -76,35 +77,21 @@ describe("workflow image previews", () => {
           }) as never,
       );
       show(<ShippingWorkPage tab={tab} />);
-      const preview = await screen.findByRole("button", {
-        name: "Preview images: Historical variant · System variant · order snapshot",
-      });
-      expect(preview.querySelector("img")).toHaveAttribute(
-        "src",
-        photo.replace("display.webp", "thumbnail.webp"),
-      );
-      fireEvent.click(preview);
-      expect(screen.getByRole("dialog").querySelector("img")).toHaveAttribute(
-        "src",
-        photo,
-      );
+      await screen.findByText("Historical variant");
+      expect(
+        screen.queryByRole("button", { name: /Preview images:/ }),
+      ).not.toBeInTheDocument();
     },
   );
 
-  it("uses enriched order lines in new-order review instead of stale payload products", () => {
+  it("does not display image previews in unfulfilled-order review", () => {
     show(
       <NewOrderReviewCard
         record={{
           id: "review",
           subjectId: "order",
           createdAt: new Date().toISOString(),
-          orderLines: [line],
-          payload: {
-            order: {
-              displayNumber: "#100",
-              lines: [{ title: "Stale payload", quantity: 1 }],
-            },
-          },
+          payload: { order: { displayNumber: "#100", lines: [line] } },
         }}
         categories={[]}
         shippingRegions={[]}
@@ -117,16 +104,71 @@ describe("workflow image previews", () => {
         busy={false}
       />,
     );
-    expect(screen.queryByText("Stale payload")).not.toBeInTheDocument();
-    fireEvent.click(
+    expect(screen.getByText("Historical variant")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Preview images:/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows order detail previews, including labeled current references for legacy empty snapshots", async () => {
+    const order = {
+      id: "order",
+      displayNumber: "#100",
+      source: "manual",
+      stage: "review",
+      statusRaw: {},
+      createdAt: "2026-10-29",
+      customerSnapshot: {},
+      stageEvents: [],
+      problemItems: [],
+      notes: [],
+      revisions: [],
+      lines: [
+        {
+          ...line,
+          variantImages: [],
+          currentVariantImages: [
+            photo,
+            photo.replace("a".repeat(64), "b".repeat(64)),
+          ],
+          currentProductImages: [photo],
+          productImages: [],
+        },
+      ],
+    };
+    vi.mocked(api.GET).mockImplementation(
+      async (path) =>
+        ({
+          data: path === "/api/v1/orders/{id}" ? order : [],
+          response: new Response(null, { status: 200 }),
+        }) as never,
+    );
+    show(<OrderDetailPage />, "/orders/:id", "/orders/order");
+    const preview = await screen.findByRole("button", {
+      name: "Preview images: Historical variant · System variant · current image",
+    });
+    expect(
       screen.getByRole("button", {
+        name: "Preview images: Historical variant · System product · current image",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
         name: "Preview images: Historical variant · System variant · order snapshot",
       }),
+    ).not.toBeInTheDocument();
+    expect(preview.querySelector("img")).toHaveAttribute(
+      "src",
+      photo.replace("display.webp", "thumbnail.webp"),
     );
+    fireEvent.click(preview);
     expect(screen.getByRole("dialog").querySelector("img")).toHaveAttribute(
       "src",
       photo,
     );
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 
   it("compares platform photos with the selected internal variant before mapping", async () => {
@@ -188,7 +230,7 @@ describe("workflow image previews", () => {
 it("closes an image preview without dismissing its confirmation dialog", () => {
   const closeConfirmation = vi.fn();
   show(
-    <Modal title="Confirm packing" onClose={closeConfirmation}>
+    <Modal title="Confirmation dialog" onClose={closeConfirmation}>
       <LineImagePreviews line={line} name="Variant" />
     </Modal>,
   );
@@ -200,7 +242,7 @@ it("closes an image preview without dismissing its confirmation dialog", () => {
   fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: "Confirm packing" }),
+    screen.getByRole("heading", { name: "Confirmation dialog" }),
   ).toBeInTheDocument();
   expect(closeConfirmation).not.toHaveBeenCalled();
 });
