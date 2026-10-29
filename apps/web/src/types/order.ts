@@ -1,8 +1,6 @@
 /** Local views of Order-domain API responses. */
 
-import type { LineImageData } from "../routes/items/line-image-previews";
-
-export interface OrderLineView extends LineImageData {
+export interface OrderLineView {
   id: string;
   title: string | null;
   description: string | null;

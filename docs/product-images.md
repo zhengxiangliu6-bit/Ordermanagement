@@ -1,12 +1,10 @@
-# Product and order image previews
+# Product image previews
 
 ## Current preview scope
 
-Image previews are available in the internal product catalog/list/detail, variants, warehouse overview/detail, product mapping, and order detail. Shipping-work queues (packing, ordering, inspection and their dialogs/add-ons) and unfulfilled-order review intentionally do not display image previews or request image snapshots. This scope supersedes the earlier workflow-image implementation.
+Image previews are available in the internal product catalog/list/detail, variants, warehouse overview/detail and product mapping. Order detail, shipping-work queues and unfulfilled-order review intentionally do not display image previews or request image snapshots. Order detail keeps the product title, quantity and item code in its purchase records. This scope supersedes the earlier order/workflow-image implementations.
 
-Order detail now fetches image data through the actual orders detail endpoint. Each line may show separately labeled system product, system variant, platform product and platform variant images. A historical image, when available, is preferred. When an old snapshot has no image, a separate **current image** reference can be shown from the linked catalog/listing. Historical snapshots are not rewritten and current photos are never labeled as historical. A variant without its own image has no variant preview; any product cover is labeled as a product image instead. An unmapped order with no available image sources has no invented preview. Snapshots preserve external URL references, not copies of third-party image bytes.
-
-Previews support multiple images, previous/next and keyboard navigation. Lists request thumbnails first; selecting a picture requests a display image. Galleries mount six thumbnails per page. Read-only order users can preview images without catalog-edit permission.
+Previews in the supported catalog/inventory/mapping screens retain multiple images, previous/next and keyboard navigation. Lists request thumbnails first; selecting a picture requests a display image. Galleries mount six thumbnails per page. Removing order previews does not delete uploaded files, existing image links or historical database snapshots.
 
 ## Upload processing and persistence
 
@@ -28,9 +26,9 @@ Previews support multiple images, previous/next and keyboard navigation. Lists r
 
 ## Validation of the latest scope adjustment
 
-38 frontend tests and 10 targeted backend tests passed, including the actual order-detail response projection, current-vs-historical image sources, multi-image order preview and absence of shipping/review previews. Frontend production build and repository ESLint passed. Backend repository calls were mocked; no production database data was changed.
+38 frontend tests and 8 targeted backend tests passed. Regression checks cover the absence of order-detail/shipping/review image previews and absence of image snapshot/product-image reads in the order-detail endpoint, while mapping previews remain covered. Frontend production build and repository ESLint passed. Backend repository calls were mocked; no production database data was changed.
 
-Full API compilation and DB-backed validation remain blocked by the onboarding environment's ungenerated Prisma client (engine/checksum download from binaries.prisma.sh returns 403). TLS/checksum verification was not disabled. Live Shopify integration was not exercised. This environment prerequisite is separate from database migrations, which are not required by this change.
+Full API compilation and DB-backed validation remain blocked by the onboarding environment's ungenerated Prisma client (engine/checksum download from binaries.prisma.sh returns 403). This existing environment prerequisite is separate from database migrations; this adjustment requires no migration.
 
 ## Files changed in the latest adjustment
 
@@ -40,14 +38,10 @@ Full API compilation and DB-backed validation remain blocked by the onboarding e
 | Modified | `apps/api/src/orders/order-line-images.ts` |
 | Modified | `apps/api/src/orders/orders.service.ts` |
 | Modified | `apps/api/src/orders/workflow-images.spec.ts` |
-| Modified | `apps/api/src/review/review.service.ts` |
-| Modified | `apps/api/src/shipping/shipping-work.service.ts` |
 | Modified | `apps/web/src/i18n/locales/en.ts` |
 | Modified | `apps/web/src/i18n/locales/zh.ts` |
 | Modified | `apps/web/src/routes/items/line-image-previews.tsx` |
 | Modified | `apps/web/src/routes/items/workflow-image-previews.spec.tsx` |
 | Modified | `apps/web/src/routes/orders/order-detail-page.tsx` |
-| Modified | `apps/web/src/routes/review/new-order-card.tsx` |
-| Modified | `apps/web/src/routes/shipping-work/shipping-work-page.tsx` |
 | Modified | `apps/web/src/types/order.ts` |
 | Modified | `docs/product-images.md` |

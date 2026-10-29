@@ -53,36 +53,3 @@ export function orderLineImages(line: unknown) {
     ),
   };
 }
-
-/** Order detail may show today's photos as a separately labeled reference when old snapshots are empty. */
-export function orderDetailLineImages(line: unknown) {
-  const historical = orderLineImages(line);
-  const data = object(line),
-    current = object(data.itemVariant);
-  const snapshot = object(object(data.itemContentVersion).snapshot);
-  const productImages = imageLinks(snapshot.images);
-  const listingVariant = object(data.listingVariant);
-  const currentPlatform = platformImages(
-    object(object(listingVariant.listing).currentVersion).snapshot,
-    String(listingVariant.externalVariantId ?? ''),
-  );
-  return {
-    ...historical,
-    productImages,
-    currentPlatformVariantImages:
-      historical.platformVariantImages.length === 0
-        ? currentPlatform.platformVariantImages
-        : [],
-    currentPlatformProductImages:
-      historical.platformProductImages.length === 0
-        ? currentPlatform.platformProductImages
-        : [],
-    currentVariantImages:
-      historical.variantImageSource === 'snapshot' &&
-      historical.variantImages.length === 0
-        ? imageLinks(current.images)
-        : [],
-    currentProductImages:
-      productImages.length === 0 ? imageLinks(object(current.item).images) : [],
-  };
-}

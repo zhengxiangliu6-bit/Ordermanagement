@@ -122,7 +122,7 @@ const zh = {
     currentIncorrect: "当前密码不正确。",
     failed: "修改密码失败（{{status}}）。",
   },
-  images: {"systemSnapshot": "系统变体 · 订单快照", "systemCurrent": "系统变体 · 当前图片", "platformVariant": "平台变体图片", "platformProduct": "平台主商品图片", "productSnapshot": "系统主商品 · 订单快照", "productCurrent": "系统主商品 · 当前图片", "platformVariantCurrent": "平台变体 · 当前图片", "platformProductCurrent": "平台主商品 · 当前图片"},
+  images: {"systemSnapshot": "系统变体 · 订单快照", "systemCurrent": "系统变体 · 当前图片", "platformVariant": "平台变体图片", "platformProduct": "平台主商品图片"},
   items: {
     previewImagesFor: "预览图片：{{name}}",
     uploadFailed: "上传失败（{{status}}）。仅支持静态 JPEG、PNG、WebP，最多 2400 万像素；429 表示服务器忙，请稍后重试。",

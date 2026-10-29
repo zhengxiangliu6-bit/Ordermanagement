@@ -122,7 +122,7 @@ const en = {
     currentIncorrect: "The current password is incorrect.",
     failed: "Password change failed ({{status}}).",
   },
-  images: {"systemSnapshot": "System variant · order snapshot", "systemCurrent": "System variant · current image", "platformVariant": "Platform variant images", "platformProduct": "Platform product images", "productSnapshot": "System product · order snapshot", "productCurrent": "System product · current image", "platformVariantCurrent": "Platform variant · current image", "platformProductCurrent": "Platform product · current image"},
+  images: {"systemSnapshot": "System variant · order snapshot", "systemCurrent": "System variant · current image", "platformVariant": "Platform variant images", "platformProduct": "Platform product images"},
   items: {
     previewImagesFor: "Preview images: {{name}}",
     uploadFailed: "Upload failed ({{status}}). Use static JPEG, PNG or WebP up to 24 megapixels. Status 429 means busy; retry shortly.",

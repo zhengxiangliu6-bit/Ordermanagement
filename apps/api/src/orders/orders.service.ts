@@ -1,4 +1,3 @@
-import { orderDetailLineImages } from './order-line-images';
 import {
   BadRequestException,
   ConflictException,
@@ -486,19 +485,7 @@ export class OrdersService {
   async get(id: string): Promise<OrderDetail> {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: {
-        ...orderDetailInclude,
-        lines: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            ...orderLineInclude,
-            itemVariant: { select: { id: true, itemCode: true, name: true, images: true, item: { select: { images: true } } } },
-            listingVariant: { select: { id: true, externalSku: true, externalVariantId: true, listing: { select: { currentVersion: { select: { snapshot: true } } } } } },
-            itemContentVersion: { select: { id: true, effectiveAt: true, snapshot: true } },
-            listingContentVersion: { select: { id: true, effectiveAt: true, snapshot: true } },
-          },
-        },
-      },
+      include: orderDetailInclude,
     });
     if (!order) throw new NotFoundException('Order not found.');
 
@@ -521,13 +508,6 @@ export class OrdersService {
 
     return {
       ...order,
-      lines: order.lines.map((line) => ({
-        ...line,
-        ...orderDetailLineImages(line),
-        listingVariant: line.listingVariant ? { id: line.listingVariant.id, externalSku: line.listingVariant.externalSku } : null,
-        itemContentVersion: line.itemContentVersion ? { id: line.itemContentVersion.id, effectiveAt: line.itemContentVersion.effectiveAt } : null,
-        listingContentVersion: line.listingContentVersion ? { id: line.listingContentVersion.id, effectiveAt: line.listingContentVersion.effectiveAt } : null,
-      })),
       stageEvents: order.stageEvents.map((event) => ({
         ...event,
         actorName:

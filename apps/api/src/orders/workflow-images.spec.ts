@@ -12,19 +12,6 @@ vi.mock('../shipping/outbound-executor.service', () => ({
 vi.mock('../sync/sync.service', () => ({ SyncService: class {} }));
 
 const historical = 'https://example.com/historical.jpg';
-const line = {
-  id: 'line',
-  title: 'Variant',
-  quantity: 1,
-  itemVariant: {
-    itemCode: 'ATK-1',
-    images: ['https://example.com/current.jpg'],
-  },
-  itemContentVersion: {
-    snapshot: { variants: [{ itemCode: 'ATK-1', images: [historical] }] },
-  },
-};
-
 describe('workflow image projections', () => {
   it('does not fetch image snapshots in shipping-work queues', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
@@ -69,17 +56,19 @@ describe('workflow image projections', () => {
     expect(prisma.order.findMany).not.toHaveBeenCalled();
   });
 
-  it('projects pictures into the actual order detail endpoint response and preserves version metadata', async () => {
-    const version = {
-      ...line.itemContentVersion,
-      id: 'version',
-      effectiveAt: new Date('2026-10-29'),
+  it('does not request or project image data in order detail', async () => {
+    const version = { id: 'version', effectiveAt: new Date('2026-10-29') };
+    const basicLine = {
+      id: 'line',
+      title: 'Variant',
+      quantity: 1,
+      itemContentVersion: version,
     };
     const findUnique = vi
       .fn()
       .mockResolvedValue({
         id: 'order',
-        lines: [{ ...line, itemContentVersion: version }],
+        lines: [basicLine],
         stageEvents: [],
         problemItems: [],
       });
@@ -89,22 +78,12 @@ describe('workflow image projections', () => {
       {} as never,
     );
     const result = await service.get('order');
-    expect(result.lines[0]).toMatchObject({
-      variantImages: [historical],
-      variantImageSource: 'snapshot',
-    });
-    expect(result.lines[0].itemContentVersion).toEqual({
-      id: version.id,
-      effectiveAt: version.effectiveAt,
-    });
-    expect(
-      findUnique.mock.calls[0][0].include.lines.include.itemContentVersion
-        .select.snapshot,
-    ).toBe(true);
-    expect(
-      findUnique.mock.calls[0][0].include.lines.include.itemVariant.select.item
-        .select.images,
-    ).toBe(true);
+    expect(result.lines[0]).not.toHaveProperty('variantImages');
+    expect(result.lines[0].itemContentVersion).toEqual(version);
+    const included = findUnique.mock.calls[0][0].include.lines.include;
+    expect(included.itemContentVersion.select.snapshot).toBeUndefined();
+    expect(included.itemVariant.select.images).toBeUndefined();
+    expect(included.listingVariant.select.listing).toBeUndefined();
   });
 
   it('keeps platform and system images separate in mapped and unmapped responses', async () => {

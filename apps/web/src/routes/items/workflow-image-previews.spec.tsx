@@ -110,7 +110,7 @@ describe("workflow image previews", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows order detail previews, including labeled current references for legacy empty snapshots", async () => {
+  it("does not show image previews on order detail even when image fields are returned", async () => {
     const order = {
       id: "order",
       displayNumber: "#100",
@@ -144,31 +144,11 @@ describe("workflow image previews", () => {
         }) as never,
     );
     show(<OrderDetailPage />, "/orders/:id", "/orders/order");
-    const preview = await screen.findByRole("button", {
-      name: "Preview images: Historical variant · System variant · current image",
-    });
+    expect(await screen.findByText("Historical variant")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: "Preview images: Historical variant · System product · current image",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", {
-        name: "Preview images: Historical variant · System variant · order snapshot",
-      }),
+      screen.queryByRole("button", { name: /Preview images:/ }),
     ).not.toBeInTheDocument();
-    expect(preview.querySelector("img")).toHaveAttribute(
-      "src",
-      photo.replace("display.webp", "thumbnail.webp"),
-    );
-    fireEvent.click(preview);
-    expect(screen.getByRole("dialog").querySelector("img")).toHaveAttribute(
-      "src",
-      photo,
-    );
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("compares platform photos with the selected internal variant before mapping", async () => {

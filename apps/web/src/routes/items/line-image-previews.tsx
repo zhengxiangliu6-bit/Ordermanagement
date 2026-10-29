@@ -4,13 +4,8 @@ import { imageUrls } from "./image-urls-editor";
 
 export interface LineImageData {
   variantImages?: unknown;
-  productImages?: unknown;
-  currentVariantImages?: unknown;
-  currentProductImages?: unknown;
   variantImageSource?: "snapshot" | "current";
   platformVariantImages?: unknown;
-  currentPlatformVariantImages?: unknown;
-  currentPlatformProductImages?: unknown;
   platformProductImages?: unknown;
 }
 
@@ -32,19 +27,8 @@ export function LineImagePreviews({
           : "images.systemCurrent",
       ),
     },
-    { images: line.productImages, label: t("images.productSnapshot") },
-    { images: line.currentVariantImages, label: t("images.systemCurrent") },
-    { images: line.currentProductImages, label: t("images.productCurrent") },
     { images: line.platformVariantImages, label: t("images.platformVariant") },
     { images: line.platformProductImages, label: t("images.platformProduct") },
-    {
-      images: line.currentPlatformVariantImages,
-      label: t("images.platformVariantCurrent"),
-    },
-    {
-      images: line.currentPlatformProductImages,
-      label: t("images.platformProductCurrent"),
-    },
   ].filter((group) => imageUrls(group.images).length > 0);
   if (!groups.length) return null;
   return (
