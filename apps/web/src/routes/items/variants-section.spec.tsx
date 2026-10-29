@@ -133,3 +133,22 @@ it("opens all variant images from a thumbnail without edit permission or eager d
   expect(navigate).not.toHaveBeenCalled();
   expect(api.PATCH).not.toHaveBeenCalled();
 });
+
+it("does not show a preview or inherit the product cover when the variant has no images", () => {
+  const withProductCover = {
+    ...item,
+    images: ["https://example.com/product-cover.jpg"],
+  } as unknown as Item;
+  const { container } = render(
+    <VariantsSection
+      item={withProductCover}
+      permissions={new Set()}
+      onChanged={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("黑色")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Preview images: 黑色" }),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector("img")).toBeNull();
+});

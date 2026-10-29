@@ -86,3 +86,7 @@ New files:
 - `apps/web/src/routes/items/safe-image.tsx`
 
 No database migration. Adding thumbnail preview buttons to the inventory overview and product list remains a proposed follow-up, not part of this fix.
+
+### Confirmed variant-row image rules
+
+A variant row previews only that variant's own images. Multiple images are supported: show the first thumbnail with the additional-image count, then navigate all images in the viewer. If a variant has no images, omit the thumbnail and preview entry entirely, even when its parent product has a cover. Do not fall back to product images in variant rows. Apply the same rule when adding preview buttons to the inventory overview; that overview enhancement is still pending. A regression test covers a variant without images whose parent does have a cover.
