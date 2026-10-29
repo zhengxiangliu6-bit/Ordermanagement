@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ALL_PERMISSIONS,
+  areValidPermissions,
+  expandPermissions,
   hasAnyPermission,
   hasPermissions,
   permissionKey,
@@ -41,20 +43,38 @@ describe("permissions", () => {
     }
   });
 
-  it("staff baseline excludes privileged scopes", () => {
-    const baseline = new Set(READ_ONLY_PERMISSIONS);
-    // Financial isolation (§20.3), sensitive carrier identity (§12.14),
-    // audit history (§23) and administration scopes are never default.
-    for (const privileged of [
-      "financial:read",
-      "users:read",
-      "audit:read",
-      "carrier-source:read",
-      "carrier-providers:read",
-      "status-config:read",
-      "review-settings:read",
-    ]) {
-      expect(baseline.has(privileged)).toBe(false);
+    it("staff baseline excludes privileged scopes", () => {
+      const baseline = new Set(READ_ONLY_PERMISSIONS);
+      // Financial isolation (§20.3), sensitive carrier identity (§12.14),
+      // audit history (§23) and administration scopes are never default.
+      for (const privileged of [
+        "financial:read",
+        "users:read",
+        "audit:read",
+        "carrier-source:read",
+        "carrier-providers:read",
+        "status-config:read",
+        "review-settings:read",
+      ]) {
+        expect(baseline.has(privileged)).toBe(false);
+      }
+    });
+
+  it("expands the wildcard for UI permission sets", () => {
+    const expanded = expandPermissions(["*"]);
+    expect(expanded).toContain("*");
+    for (const key of ALL_PERMISSIONS) {
+      expect(expanded).toContain(key);
     }
+    // Plain sets pass through untouched (duplicates removed).
+    expect(expandPermissions(["orders:read", "orders:read"])).toEqual([
+      "orders:read",
+    ]);
+  });
+
+  it("validates permission key lists", () => {
+    expect(areValidPermissions(["orders:read", "*"])).toBe(true);
+    expect(areValidPermissions(["orders:read", "nope:read"])).toBe(false);
+    expect(areValidPermissions([])).toBe(true);
   });
 });

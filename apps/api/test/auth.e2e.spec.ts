@@ -60,7 +60,9 @@ suite('auth e2e (Better Auth)', () => {
       .expect(200);
     expect(login.body).toMatchObject({ email, displayName: 'Administrator' });
     expect(login.body.mustChangePassword).toBe(false);
-    expect(login.body.permissions).toContain('orders:read');
+    // The locked administrator role carries the wildcard (every permission,
+    // including future ones) — M7 R7.
+    expect(login.body.permissions).toEqual(['*']);
     const cookie = login.headers['set-cookie'] as unknown as string[];
     expect(cookie.join()).toContain('better-auth');
 

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api-client/client";
+import { buttonClasses } from "../../components/ui";
 import { Modal } from "../../components/modal";
 
 interface CarrierView {
@@ -14,6 +15,8 @@ interface CarrierView {
     normalization?: { stripSpaces?: boolean; uppercase?: boolean };
   };
   trackingUrlTemplate: string | null;
+  crossBorder: boolean;
+  orderUrlTemplate: string | null;
   attakyTransform: {
     rules: Array<{ pattern: string; replacement: string }>;
     version: number;
@@ -43,6 +46,8 @@ const EMPTY_SIMPLE = {
   stripSpaces: true,
   uppercase: true,
   urlTemplate: "",
+  crossBorder: false,
+  orderUrl: "",
   attakyPrefix: "ATK-",
   takeFirst: 3,
   takeLast: 4,
@@ -105,6 +110,8 @@ function toSimple(carrier: CarrierView): SimpleForm {
     stripSpaces: carrier.recognition.normalization?.stripSpaces ?? false,
     uppercase: carrier.recognition.normalization?.uppercase ?? false,
     urlTemplate: carrier.trackingUrlTemplate ?? "",
+    crossBorder: carrier.crossBorder ?? false,
+    orderUrl: carrier.orderUrlTemplate ?? "",
     attakyPrefix: attakyPrefix || "ATK-",
     takeFirst,
     takeLast,
@@ -129,6 +136,8 @@ function toPayload(form: SimpleForm) {
       normalization: { stripSpaces: form.stripSpaces, uppercase: form.uppercase },
     },
     trackingUrlTemplate: form.urlTemplate.trim() || null,
+    crossBorder: form.crossBorder,
+    orderUrlTemplate: form.orderUrl.trim() || null,
     attakyTransform: transform
       ? { rules: [transform], version: Math.max(1, form.version) }
       : null,
@@ -269,7 +278,7 @@ export default function CarriersPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("carriers.title")}</h1>
+        <h1 className="font-display text-2xl leading-tight text-ink">{t("carriers.title")}</h1>
         <button
           type="button"
           onClick={() => {
@@ -279,7 +288,7 @@ export default function CarriersPage() {
             setNotice(null);
             setDialogOpen(true);
           }}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          className={buttonClasses.primary}
         >
           {t("carriers.newButton")}
         </button>
@@ -305,13 +314,13 @@ export default function CarriersPage() {
             value={previewInput}
             onChange={(e) => setPreviewInput(e.target.value)}
             placeholder="SF1234567890123"
-            className="w-72 rounded border border-slate-300 px-2 py-1 text-sm"
+            className="w-72 rounded-lg border border-ink/20 px-2 py-1 text-sm"
           />
           <button
             type="button"
             disabled={!previewInput.trim()}
             onClick={() => void runPreview()}
-            className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            className={buttonClasses.primary}
           >
             {t("carriers.previewRun")}
           </button>
@@ -380,7 +389,6 @@ export default function CarriersPage() {
               <th className="py-1.5 pr-2 font-medium">{t("carriers.key")}</th>
               <th className="py-1.5 pr-2 font-medium">{t("carriers.enabled")}</th>
               <th className="py-1.5 pr-2 font-medium">{t("carriers.ruleSummary")}</th>
-              <th className="py-1.5 pr-2 font-medium">{t("carriers.version")}</th>
               <th className="py-1.5 font-medium" />
             </tr>
           </thead>
@@ -393,7 +401,6 @@ export default function CarriersPage() {
                 <td className="py-1.5 pr-2 text-xs text-slate-600">
                   {summarizeRule(carrier)}
                 </td>
-                <td className="py-1.5 pr-2">{carrier.attakyTransform?.version ?? "—"}</td>
                 <td className="py-1.5 text-right">
                   <button
                     type="button"
@@ -404,7 +411,7 @@ export default function CarriersPage() {
                       setNotice(null);
                       setDialogOpen(true);
                     }}
-                    className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100"
+                    className="rounded-lg border border-ink/20 px-2 py-0.5 text-xs hover:bg-pill"
                   >
                     {t("common.edit")}
                   </button>
@@ -422,7 +429,7 @@ export default function CarriersPage() {
         </table>
 
         {/* Collision tester */}
-        <div className="mt-3 rounded border border-dashed border-slate-300 bg-slate-50 p-3">
+        <div className="mt-3 rounded-xl border border-dashed border-ink/20 bg-pill p-3">
           {/* Collision test: distinct originals must not map to one public number. */}
           <div className="text-xs font-medium text-slate-600">{t("carriers.collisionTitle")}</div>
           <textarea
@@ -430,7 +437,7 @@ export default function CarriersPage() {
             onChange={(e) => setCollisionSamples(e.target.value)}
             rows={3}
             placeholder={"SF1112223334444\nSF1119998887777"}
-            className="mt-2 w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
+            className="mt-2 w-full rounded-lg border border-ink/20 px-2 py-1 font-mono text-xs"
           />
           <div className="mt-2 flex flex-wrap gap-2">
             {(carriers.data ?? []).map((carrier) => (
@@ -438,7 +445,7 @@ export default function CarriersPage() {
                 key={carrier.id}
                 type="button"
                 onClick={() => void runCollisions(carrier.id)}
-                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:bg-slate-100"
+                className="rounded-lg border border-ink/20 bg-white px-2 py-0.5 text-xs hover:bg-pill"
               >
                 {t("carriers.collisionRunFor", { name: carrier.name })}
               </button>
@@ -465,7 +472,7 @@ export default function CarriersPage() {
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="SF Express"
-                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 text-sm"
               />
             </label>
             <label className="text-xs text-slate-600">
@@ -474,13 +481,13 @@ export default function CarriersPage() {
                 value={form.key}
                 onChange={(e) => set("key", e.target.value)}
                 placeholder="sf-express"
-                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 text-sm"
               />
             </label>
 
-            <fieldset className="rounded border border-slate-200 p-3 md:col-span-2">
+            <fieldset className="rounded-xl border border-ink/10 bg-white p-3 md:col-span-2 pop-shadow-sm">
               {/* Plain-language rule: prefix + digit count generates the regex. */}
-              <legend className="px-1 text-xs font-medium text-slate-600">
+              <legend className="px-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {t("carriers.recognitionTitle")}
               </legend>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -490,7 +497,7 @@ export default function CarriersPage() {
                     value={form.prefix}
                     onChange={(e) => set("prefix", e.target.value.toUpperCase())}
                     placeholder="SF"
-                    className="ml-1 w-24 rounded border border-slate-300 px-2 py-1 font-mono"
+                    className="ml-1 w-24 rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono"
                   />
                 </label>
                 <label>
@@ -501,7 +508,7 @@ export default function CarriersPage() {
                     max={30}
                     value={form.digitCount}
                     onChange={(e) => set("digitCount", Number(e.target.value))}
-                    className="ml-1 w-20 rounded border border-slate-300 px-2 py-1"
+                    className="ml-1 w-20 rounded-lg border border-ink/20 bg-white px-2 py-1.5"
                   />
                 </label>
                 <label className="flex items-center gap-1">
@@ -521,7 +528,7 @@ export default function CarriersPage() {
                   {t("carriers.uppercase")}
                 </label>
               </div>
-              <p className="mt-2 rounded bg-slate-50 px-2 py-1 text-xs text-slate-500">
+              <p className="mt-2 rounded-lg bg-pill px-2.5 py-1.5 text-xs text-slate-500">
                 {t("carriers.recognitionPreview", {
                   prefix: form.prefix || "?",
                   count: form.digitCount,
@@ -529,9 +536,9 @@ export default function CarriersPage() {
               </p>
             </fieldset>
 
-            <fieldset className="rounded border border-slate-200 p-3 md:col-span-2">
+            <fieldset className="rounded-xl border border-ink/10 bg-white p-3 md:col-span-2 pop-shadow-sm">
               {/* Public number: prefix + keep-first/last digit runs; live sample preview below. */}
-              <legend className="px-1 text-xs font-medium text-slate-600">
+              <legend className="px-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {t("carriers.transformTitle")}
               </legend>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -540,7 +547,7 @@ export default function CarriersPage() {
                   <input
                     value={form.attakyPrefix}
                     onChange={(e) => set("attakyPrefix", e.target.value)}
-                    className="ml-1 w-28 rounded border border-slate-300 px-2 py-1 font-mono"
+                    className="ml-1 w-28 rounded-lg border border-ink/20 px-2 py-1 font-mono"
                   />
                 </label>
                 <label>
@@ -551,7 +558,7 @@ export default function CarriersPage() {
                     max={15}
                     value={form.takeFirst}
                     onChange={(e) => set("takeFirst", Number(e.target.value))}
-                    className="ml-1 w-16 rounded border border-slate-300 px-2 py-1"
+                    className="ml-1 w-16 rounded-lg border border-ink/20 bg-white px-2 py-1.5"
                   />
                 </label>
                 <label>
@@ -562,7 +569,7 @@ export default function CarriersPage() {
                     max={15}
                     value={form.takeLast}
                     onChange={(e) => set("takeLast", Number(e.target.value))}
-                    className="ml-1 w-16 rounded border border-slate-300 px-2 py-1"
+                    className="ml-1 w-16 rounded-lg border border-ink/20 bg-white px-2 py-1.5"
                   />
                 </label>
                 {keepDigitsInvalid ? (
@@ -570,16 +577,6 @@ export default function CarriersPage() {
                     {t("carriers.keepDigitsInvalid", { count: form.digitCount })}
                   </p>
                 ) : null}
-                <label>
-                  {t("carriers.version")}
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.version}
-                    onChange={(e) => set("version", Number(e.target.value))}
-                    className="ml-1 w-16 rounded border border-slate-300 px-2 py-1"
-                  />
-                </label>
               </div>
               <label className="mt-3 block text-xs text-slate-600">
                 {t("carriers.sample")}
@@ -587,11 +584,11 @@ export default function CarriersPage() {
                   value={form.sample}
                   onChange={(e) => set("sample", e.target.value)}
                   placeholder="SF1234567890123"
-                  className="mt-1 w-72 rounded border border-slate-300 px-2 py-1 font-mono text-xs"
+                  className="mt-1 w-72 rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs"
                 />
               </label>
               {livePreview ? (
-                <div className="mt-2 rounded bg-slate-50 px-2 py-1.5 text-xs">
+                <div className="mt-2 rounded-lg bg-pill px-2.5 py-2 text-xs">
                   {livePreview.matched ? (
                     <p className="text-slate-700">
                       {t("carriers.liveMatched", {
@@ -614,8 +611,25 @@ export default function CarriersPage() {
                 value={form.urlTemplate}
                 onChange={(e) => set("urlTemplate", e.target.value)}
                 placeholder="https://www.sf-express.com/track/{number}"
-                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
+                className="mt-1 w-full rounded-lg border border-ink/20 px-2 py-1 font-mono text-xs"
               />
+            </label>
+            <label className="text-xs text-slate-600 md:col-span-2">
+              {t("carriers.orderUrl")}
+              <input
+                value={form.orderUrl}
+                onChange={(e) => set("orderUrl", e.target.value)}
+                placeholder="https://carrier.example.com/order"
+                className="mt-1 w-full rounded-lg border border-ink/20 px-2 py-1 font-mono text-xs"
+              />
+            </label>
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={form.crossBorder}
+                onChange={(e) => set("crossBorder", e.target.checked)}
+              />
+              {t("carriers.crossBorder")}
             </label>
             <label className="flex items-center gap-1 text-xs text-slate-600">
               <input
@@ -645,7 +659,7 @@ export default function CarriersPage() {
             <button
               type="button"
               onClick={closeDialog}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+              className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm hover:bg-pill"
             >
               {t("common.cancel")}
             </button>

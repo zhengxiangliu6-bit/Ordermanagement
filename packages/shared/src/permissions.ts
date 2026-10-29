@@ -21,6 +21,8 @@ export const PERMISSION_SCOPES = [
   "attachments",
   "status-config",
   "review-settings",
+  "inventory",
+  "categories",
   "audit",
   "users",
   "notifications",
@@ -34,19 +36,21 @@ export type PermissionScope = (typeof PERMISSION_SCOPES)[number];
  * `financial` intentionally expose read-only actions in this release.
  */
 export const SCOPE_ACTIONS: Record<PermissionScope, readonly string[]> = {
-  orders: ["read", "create-manual", "revise", "review", "archive", "restore", "delete"],
+  orders: ["read", "create-manual", "revise", "review", "archive", "restore", "delete", "cancel"],
   items: ["read", "create", "update", "archive", "delete"],
   listings: ["read", "review", "annotate"],
   mapping: ["read", "manage"],
   stores: ["read", "configure", "connect", "pause", "resume", "synchronize", "delete"],
   shipping: [
     "read",
-    "enter",
-    "revise",
-    "review",
-    "send-now",
-    "retry",
     "manage-settings",
+    "weigh",
+    "backfill",
+    "inspect",
+    "tail",
+    "issue-report",
+    "issue-review",
+    "return",
   ],
   "carrier-source": ["read"],
   "carrier-providers": ["read", "manage"],
@@ -55,14 +59,33 @@ export const SCOPE_ACTIONS: Record<PermissionScope, readonly string[]> = {
   attachments: ["view-metadata", "open", "upload", "delete"],
   "status-config": ["read", "manage"],
   "review-settings": ["read", "manage"],
+  categories: ["read", "manage"],
   audit: ["read"],
-  users: ["read", "manage"],
+  users: ["read", "create", "manage", "delete"],
   notifications: ["read", "manage-own"],
+  inventory: [
+    "read",
+    "manage",
+    // Warehouse-scoped keys (inventory:china:read, …) back the per-warehouse
+    // interfaces: route guards, nav entries and stock/adjust authorization
+    // all match on them; the plain read/manage keys stay the global grants.
+    "china:read",
+    "china:manage",
+    "canada:read",
+    "canada:manage",
+  ],
   financial: ["read", "review"],
 };
 
 /** A single permission key, formatted as `<scope>:<action>`. */
 export type PermissionKey = string;
+
+/**
+ * Grants every permission, including permissions added in future releases
+ * without re-seeding. Reserved for the locked built-in administrator role;
+ * the API guards honor it via hasPermissions/hasAnyPermission.
+ */
+export const WILDCARD_PERMISSION = "*";
 
 export function permissionKey(
   scope: PermissionScope,
@@ -133,4 +156,26 @@ export function hasAnyPermission(
   const set = granted instanceof Set ? granted : new Set(granted);
   if (set.has("*")) return true;
   return required.some((key) => set.has(key));
+}
+
+/**
+ * Expands the wildcard into the concrete permission list (plus the wildcard
+ * itself). The web app consumes a plain permission array (Set.has lookups
+ * for navigation), so the wildcard must be expanded client-side.
+ */
+export function expandPermissions(
+  granted: readonly PermissionKey[],
+): PermissionKey[] {
+  if (!granted.includes(WILDCARD_PERMISSION)) {
+    return [...new Set(granted)];
+  }
+  return [...new Set([WILDCARD_PERMISSION, ...ALL_PERMISSIONS])];
+}
+
+/** True when every key is a defined permission (or the wildcard). */
+export function areValidPermissions(
+  keys: readonly PermissionKey[],
+): boolean {
+  const valid = new Set(ALL_PERMISSIONS);
+  return keys.every((key) => key === WILDCARD_PERMISSION || valid.has(key));
 }

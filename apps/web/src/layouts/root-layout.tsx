@@ -10,6 +10,8 @@ interface NavItem {
   to?: string;
   /** Permission key required to see this entry (UI convenience only). */
   requires?: string;
+  /** Any-of alternative: shown when at least one listed key is granted. */
+  requiresAny?: string[];
   /** Search-param value that marks this entry active (for shared pages). */
   matchType?: string;
 }
@@ -39,38 +41,54 @@ function useNavGroups(): NavGroup[] {
     },
     {
       label: t("nav.reviewCenter"),
-      requires: "orders:read",
       items: [
-        { label: t("nav.newOrders"), to: "/review?type=new_order", matchType: "new_order" },
-        { label: t("nav.orderUpdates"), to: "/review?type=order_update", matchType: "order_update" },
-        { label: t("nav.listings"), to: "/review?type=listing", matchType: "listing" },
+        {
+          label: t("nav.newOrders"),
+          to: "/review?type=new_order",
+          matchType: "new_order",
+          requires: "orders:review",
+        },
+        {
+          label: t("nav.problemItems"),
+          to: "/review/problems",
+          requires: "shipping:issue-review",
+        },
       ],
     },
     {
       label: t("nav.shipments"),
       requires: "shipping:read",
       items: [
-        { label: t("nav.allShipments"), to: "/shipments", matchType: "all" },
+        { label: t("nav.packingQueue"), to: "/shipping-work/packing", matchType: "packing", requires: "shipping:weigh" },
+        { label: t("nav.orderingQueue"), to: "/shipping-work/ordering", matchType: "ordering", requires: "shipping:backfill" },
+        { label: t("nav.inspectionQueue"), to: "/shipping-work/inspection", matchType: "inspection", requires: "shipping:inspect" },
+        { label: t("nav.tailQueue"), to: "/shipping-work/tail", matchType: "tail", requires: "shipping:tail" },
+        { label: t("nav.needsAttentionQueue"), to: "/shipping-work/needs-attention", matchType: "needs_attention", requires: "shipping:issue-review" },
+        { label: t("nav.carriers"), to: "/carriers", requires: "carrier-providers:read" },
+      ],
+    },
+    {
+      label: t("nav.inventoryGroup"),
+      items: [
         {
-          label: t("nav.scheduled"),
-          to: "/shipments?view=scheduled",
-          matchType: "scheduled",
+          label: t("nav.inventoryChina"),
+          to: "/inventory/china",
+          requiresAny: ["inventory:read", "inventory:china:read"],
         },
         {
-          label: t("nav.needsAttention"),
-          to: "/shipments?view=needs_attention",
-          matchType: "needs_attention",
+          label: t("nav.inventoryCanada"),
+          to: "/inventory/canada",
+          requiresAny: ["inventory:read", "inventory:canada:read"],
         },
-        { label: t("nav.carriers"), to: "/carriers" },
       ],
     },
     {
       label: t("nav.catalog"),
       requires: "items:read",
       items: [
-        { label: t("nav.items"), to: "/items" },
-        { label: t("nav.listings"), to: "/listings" },
-        { label: t("nav.itemMapping"), to: "/mapping" },
+        { label: t("nav.items"), to: "/items", requires: "items:read" },
+        { label: t("nav.listingsCatalog"), to: "/listings", requires: "listings:read" },
+        { label: t("nav.itemMapping"), to: "/mapping", requires: "mapping:read" },
       ],
     },
     {
@@ -85,6 +103,12 @@ function useNavGroups(): NavGroup[] {
           requires: "shipping:read",
         },
         { label: t("nav.settings"), requires: "review-settings:read" },
+        { label: t("nav.categories"), to: "/settings/categories", requires: "categories:read" },
+        {
+          label: t("nav.shippingRegions"),
+          to: "/settings/shipping-regions",
+          requires: "shipping:manage-settings",
+        },
       ],
     },
   ];
@@ -151,7 +175,10 @@ export function RootLayout() {
             .filter((group) => !group.requires || permissions.has(group.requires))
             .map((group) => {
               const items = group.items.filter(
-                (item) => !item.requires || permissions.has(item.requires),
+                (item) =>
+                  (!item.requires || permissions.has(item.requires)) &&
+                  (!item.requiresAny ||
+                    item.requiresAny.some((key) => permissions.has(key))),
               );
               if (items.length === 0) return null;
               return (
@@ -177,7 +204,7 @@ export function RootLayout() {
             })}
         </nav>
         <main className="min-w-0 flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-[1600px]">
             <Outlet />
           </div>
         </main>

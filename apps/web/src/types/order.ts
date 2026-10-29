@@ -35,6 +35,9 @@ export interface OrderView {
   buyerNote: string | null;
   deliveryMethod: string | null;
   financial: Record<string, unknown> | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  cancelledReason: string | null;
   archivedAt: string | null;
   deletedAt: string | null;
   rawSource: Record<string, unknown> | null;
@@ -43,7 +46,48 @@ export interface OrderView {
   lines?: OrderLineView[];
   revisions?: OrderRevisionView[];
   notes?: import("./note").Note[];
+  /** Latest reviewer note body (list only, M7 follow-up). */
+  latestReviewNote?: string | null;
   _count?: { lines: number; notes: number };
+  region?: string | null;
+  shippingRegion?: { id: string; name: string } | null;
+  shippingMethod?: { id: string; name: string } | null;
+  stage?: string;
+  paymentStatus?: string | null;
+  stageEvents?: Array<{
+    id: string;
+    fromStage: string | null;
+    toStage: string;
+    action: string;
+    actorId: string;
+    actorName?: string | null;
+    note: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  problemItems?: Array<{
+    id: string;
+    stageAtReport: string;
+    type: string;
+    content: string;
+    status: string;
+    reportedBy: string;
+    reportedByName?: string | null;
+    reportedAt: string;
+    handledBy: string | null;
+    handledByName?: string | null;
+    handledAt: string | null;
+    resolutionNote: string | null;
+    copiedOrderId: string | null;
+  }>;
+  category?: { id: string; name: string } | null;
+  shipments?: Array<{
+    attakyTrackingNumber: string | null;
+    originalTrackingNumber: string | null;
+    tailTrackingNumber?: string | null;
+    carrier: { name: string } | null;
+    dispatchedAt: string | null;
+  }>;
   store?: { displayName: string; platform: string } | null;
 }
 

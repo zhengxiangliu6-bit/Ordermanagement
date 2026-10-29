@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -43,15 +44,8 @@ export class UsersController {
     return this.admin.list({ status: query.status, roleKey: query.roleKey });
   }
 
-  @Get('roles')
-  @RequirePermissions('users:read')
-  @ApiOperation({ summary: 'List assignable roles.' })
-  listRoles() {
-    return this.admin.listRoles();
-  }
-
   @Post()
-  @RequirePermissions('users:manage')
+  @RequirePermissions('users:create')
   @ApiOperation({
     summary:
       'Create an account with a one-time temporary password (shown once, forces change).',
@@ -89,6 +83,16 @@ export class UsersController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.admin.setRoles(id, dto.roleKeys, actor.id);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('users:delete')
+  @ApiOperation({
+    summary:
+      'Permanently delete an account (sessions and role assignments cascade; notes keep history).',
+  })
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    return this.admin.deleteUser(id, actor.id);
   }
 }
 

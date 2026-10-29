@@ -1,11 +1,13 @@
 import { redirect } from "react-router";
+import { expandPermissions } from "@om/shared";
 import { api } from "../api-client/client";
 import type { AuthUser } from "../api-client/types";
 
 /**
  * Session gate for the application shell: resolve /auth/me or bounce to the
  * login page. The returned user is consumed by RootLayout via
- * useRouteLoaderData("root").
+ * useRouteLoaderData("root"). The wildcard (locked admin role) is expanded
+ * into the concrete permission list for the Set-based nav lookups.
  */
 export async function rootLoader(): Promise<{ user: AuthUser } | Response> {
   const { data, response } = await api.GET("/api/v1/auth/me");
@@ -17,5 +19,5 @@ export async function rootLoader(): Promise<{ user: AuthUser } | Response> {
   if (!response.ok || !data) {
     throw redirect("/login");
   }
-  return { user: data };
+  return { user: { ...data, permissions: expandPermissions(data.permissions) } };
 }

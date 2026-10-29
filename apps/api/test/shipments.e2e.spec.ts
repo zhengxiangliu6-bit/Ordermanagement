@@ -15,6 +15,8 @@ suite('shipments and outbound scheduling e2e', () => {
   let app: INestApplication;
   let agent: request.Agent;
   let adminCookie: string[];
+  let shippingRegionId = '';
+  let categoryId = '';
   let staffCookie: string[] = [];
   let prisma: PrismaService;
 
@@ -53,6 +55,16 @@ suite('shipments and outbound scheduling e2e', () => {
       .send({ email: process.env.ADMIN_EMAIL ?? 'admin@example.com', password })
       .expect(200);
     adminCookie = login.headers['set-cookie'] as unknown as string[];
+    const regions = await agent
+      .get('/api/v1/shipping-regions')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    shippingRegionId = (regions.body as Array<{ id: string }>)[0].id;
+    const categories = await agent
+      .get('/api/v1/categories')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    categoryId = (categories.body as Array<{ id: string }>)[0].id;
 
     // Staff (read-only baseline: shipping:read but not shipping:enter).
     const created = await agent
@@ -177,6 +189,7 @@ suite('shipments and outbound scheduling e2e', () => {
     await agent
       .post(`/api/v1/review-queue/${record.id}/approve`)
       .set('Cookie', adminCookie)
+      .send({ shippingRegionId, categoryId })
       .expect(201);
     const orders = await agent
       .get('/api/v1/orders')

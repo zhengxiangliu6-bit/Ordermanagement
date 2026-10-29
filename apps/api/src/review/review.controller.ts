@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
 } from './review.service';
 import {
   RequireAnyPermissions,
+  RequirePermissions,
 } from '../rbac/require-permissions.decorator';
 
 export class ReviewListQueryDto {
@@ -42,7 +44,7 @@ export class ReviewController {
   constructor(private readonly review: ReviewService) {}
 
   @Get()
-  @RequireAnyPermissions('orders:read', 'shipping:read')
+  @RequirePermissions('orders:review')
   @ApiOperation({ summary: 'List pending review records (filter by type/store).' })
   list(
     @Query('type') type: string,
@@ -57,17 +59,31 @@ export class ReviewController {
   }
 
   @Get(':id')
-  @RequireAnyPermissions('orders:read', 'shipping:read')
+  @RequirePermissions('orders:review')
   @ApiOperation({ summary: 'Get one review record.' })
   getOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.review.get(id, user.permissions);
   }
 
+  @Patch(':id/note')
+  @RequireAnyPermissions('orders:review')
+  @ApiOperation({ summary: 'Save a reviewer note on a pending record (M7).' })
+  saveNote(
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
+    return this.review.saveNote(id, dto.note ?? null);
+  }
+
   @Post(':id/approve')
   @RequireAnyPermissions('orders:review', 'shipping:review')
   @ApiOperation({ summary: 'Approve one pending record (per-type permission asserted in service).' })
-  approve(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.review.approve(id, user.id, user.permissions);
+  approve(
+    @Param('id') id: string,
+    @Body() dto: { shippingRegionId?: string; categoryId?: string | null; note?: string },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.review.approve(id, user.id, user.permissions, dto);
   }
 
   @Post('approve-batch')

@@ -287,6 +287,35 @@ export class OutboundExecutorService {
       },
     });
 
+    // A fully synced outbound means the platform is now fulfilled: reflect
+    // it locally immediately (order list badges read statusRaw) instead of
+    // waiting for the next import. The accepted-external base moves with
+    // it so the next sync's platform echo compares as no-change (§15).
+    if (outcome.remoteSyncStatus === 'synced') {
+      const order = shipment.order;
+      const currentStatusRaw = (order.statusRaw ?? {}) as Record<string, unknown>;
+      const accepted = (order.lastAcceptedExternal ?? {}) as {
+        statusRaw?: Record<string, unknown>;
+      };
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          statusRaw: {
+            ...currentStatusRaw,
+            fulfillmentStatus: 'FULFILLED',
+          } as unknown as Prisma.InputJsonValue,
+          fulfillmentStatus: 'FULFILLED',
+          lastAcceptedExternal: {
+            ...accepted,
+            statusRaw: {
+              ...(accepted.statusRaw ?? currentStatusRaw),
+              fulfillmentStatus: 'FULFILLED',
+            },
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+
     await this.audit.record({
       actorId,
       action: 'shipment.outbound.attempt',
@@ -303,6 +332,20 @@ export class OutboundExecutorService {
     this.logger.log(
       `Shipment ${shipmentId} outbound attempt ${outcome.attempts}: ${outcome.remoteSyncStatus}.`,
     );
+    // Terminal failures carry the reason in ops[].detail — surface it in
+    // the worker log so the terminal shows what needs human handling.
+    if (
+      outcome.remoteSyncStatus === 'manual_action_required' ||
+      outcome.remoteSyncStatus === 'not_supported'
+    ) {
+      for (const op of outcome.ops) {
+        if (!op.ok && op.detail) {
+          this.logger.warn(
+            `Shipment ${shipmentId} op "${op.op}" failed (${op.errorType}): ${op.detail}`,
+          );
+        }
+      }
+    }
     return { outcome };
   }
 

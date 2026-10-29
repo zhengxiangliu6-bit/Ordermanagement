@@ -5,6 +5,7 @@ export interface ItemVariant {
   itemId: string;
   itemCode: string;
   name: string;
+  nameEn: string;
   optionValues: Record<string, unknown> | null;
   images: Record<string, unknown> | null;
   archivedAt: string | null;
@@ -19,6 +20,7 @@ export type { Note, NoteRevision, NoteAuthor } from "./note";
 export interface Item {
   id: string;
   name: string;
+  nameEn: string;
   description: string | null;
   category: string | null;
   tags: string[];

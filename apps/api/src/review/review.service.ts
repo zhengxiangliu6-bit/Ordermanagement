@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -6,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hasPermissions } from '@om/shared';
+import { normalizeFulfillmentStatus } from '../orders/fulfillment';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SyncService } from '../sync/sync.service';
@@ -106,20 +108,53 @@ export class ReviewService {
     return this.prisma.$transaction([
       this.prisma.reviewRecord.findMany({
         where,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.prisma.reviewRecord.count({ where }),
-    ]).then(([records, total]) => ({
-      records: records.map((record) =>
-        sanitizeShipmentPayload(record, viewerPermissions),
-      ),
-      total,
-      page,
-      pageSize,
-      pageCount: Math.max(1, Math.ceil(total / pageSize)),
-    }));
+    ]).then(async ([records, total]) => {
+      // M7 R3: enrich new_order records with prior order count for the
+      // same customer (how many orders this person has placed before).
+      if (type === 'new_order') {
+        const enriched = await Promise.all(
+          records.map(async (record) => {
+            const payload = record.payload as { order?: { customer?: { email?: string; name?: string } } };
+            const email = payload.order?.customer?.email;
+            const name = payload.order?.customer?.name;
+            let priorOrderCount = 0;
+            if (email || name) {
+              priorOrderCount = await this.prisma.order.count({
+                where: {
+                  AND: [
+                    { id: { not: record.subjectId ?? undefined } },
+                    email
+                      ? { customerSnapshot: { path: ['email'], string_contains: email } }
+                      : { customerSnapshot: { path: ['name'], string_contains: name ?? '' } },
+                  ],
+                },
+              });
+            }
+            return {
+              ...sanitizeShipmentPayload(record, viewerPermissions),
+              priorOrderCount,
+            };
+          }),
+        );
+        return {
+          records: enriched,
+          total, page, pageSize,
+          pageCount: Math.max(1, Math.ceil(total / pageSize)),
+        };
+      }
+      return {
+        records: records.map((record) =>
+          sanitizeShipmentPayload(record, viewerPermissions),
+        ),
+        total, page, pageSize,
+        pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      };
+    });
   }
 
   async get(id: string, viewerPermissions: string[] = ['*']) {
@@ -128,8 +163,26 @@ export class ReviewService {
     return sanitizeShipmentPayload(record, viewerPermissions);
   }
 
+  /** M7: save a reviewer note on a pending record before deciding. */
+  async saveNote(id: string, note: string | null) {
+    const record = await this.getChecked(id);
+    if (record.status !== 'pending') {
+      throw new ConflictException('This record has already been decided.');
+    }
+    const updated = await this.prisma.reviewRecord.update({
+      where: { id },
+      data: { reviewerNote: note },
+    });
+    return { ok: true, reviewerNote: updated.reviewerNote };
+  }
+
   /** Approves a pending record and merges its staged content (per type). */
-  async approve(id: string, userId: string, userPermissions: string[]) {
+  async approve(
+    id: string,
+    userId: string,
+    userPermissions: string[],
+    assignment?: { shippingRegionId?: string; categoryId?: string | null; note?: string },
+  ) {
     const record = await this.getChecked(id);
     assertTypePermission({ permissions: userPermissions }, record.type as ReviewQueueType, 'review');
     if (record.status !== 'pending') {
@@ -147,11 +200,27 @@ export class ReviewService {
         record.subjectId,
       );
     } else if (record.type === 'new_order') {
-      const payload = record.payload as unknown as { order: ExternalOrder };
-      const store = await this.prisma.store.findUniqueOrThrow({
-        where: { id: record.storeId! },
-      });
-      await this.sync.createOfficialExternalOrder(store, payload.order);
+      const payload = record.payload as unknown as {
+        order: ExternalOrder;
+        existingOrder?: boolean;
+      };
+      let orderId: string;
+      if (payload.existingOrder) {
+        // Manual orders (including copies) already exist; approval only
+        // confirms them and applies the reviewer's assignment.
+        if (!record.subjectId) {
+          throw new ConflictException('Existing-order review has no subject order.');
+        }
+        orderId = record.subjectId;
+      } else {
+        const store = await this.prisma.store.findUniqueOrThrow({
+          where: { id: record.storeId! },
+        });
+        orderId = await this.sync.createOfficialExternalOrder(store, payload.order);
+      }
+      // M7 R3: reviewer assigns the shipping method and may set/adjust the
+      // product category at approval; the note is preserved on the order.
+      await this.applyOrderAssignment(orderId, userId, assignment);
     } else if (record.type === 'order_update') {
       const payload = record.payload as unknown as {
         order: ExternalOrder;
@@ -171,6 +240,7 @@ export class ReviewService {
           where: { id: record.subjectId },
           data: {
             statusRaw: payload.order.statusRaw as unknown as Prisma.InputJsonValue,
+            fulfillmentStatus: normalizeFulfillmentStatus(payload.order.statusRaw),
             customerSnapshot: externalView.customerSnapshot as Prisma.InputJsonValue,
             buyerNote: payload.order.buyerNote,
             deliveryMethod: payload.order.deliveryMethod,
@@ -227,6 +297,13 @@ export class ReviewService {
     if (record.status !== 'pending') {
       throw new ConflictException('This record has already been decided.');
     }
+    // M7: unfulfilled-order review is approve-only. A new order is either
+    // accepted or cancelled on the platform; there is no "reject" outcome.
+    if (record.type === 'new_order') {
+      throw new ConflictException(
+        'New orders cannot be rejected; approve the order instead.',
+      );
+    }
     if (record.type === 'shipment') {
       // Rejection returns the shipment for correction (§12.10/§12.12).
       await this.shipments.rejectOutbound(record, userId);
@@ -243,6 +320,88 @@ export class ReviewService {
       metadata: { subjectId: record.subjectId },
     });
     return { ok: true };
+  }
+
+  /** Confirms the order and applies the reviewer's region/category/note. */
+  private async applyOrderAssignment(
+    orderId: string,
+    userId: string,
+    assignment?: { shippingRegionId?: string; categoryId?: string | null; note?: string },
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found.');
+
+    const regionId = assignment?.shippingRegionId ?? order.shippingRegionId;
+    const categoryId = assignment?.categoryId ?? order.categoryId;
+    if (!regionId || !categoryId) {
+      throw new BadRequestException(
+        'Select a shipping region and a product category before approving.',
+      );
+    }
+
+    const hasAssignment = Boolean(
+      assignment &&
+        (assignment.shippingRegionId ||
+          assignment.categoryId !== undefined ||
+          assignment.note),
+    );
+    if (hasAssignment && assignment) {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          ...(assignment.shippingRegionId
+            ? { shippingRegionId: assignment.shippingRegionId }
+            : {}),
+          ...(assignment.categoryId !== undefined && assignment.categoryId !== null
+            ? { categoryId: assignment.categoryId }
+            : {}),
+        },
+      });
+      if (assignment.note) {
+        await this.prisma.note.create({
+          data: {
+            ownerType: 'order',
+            ownerId: orderId,
+            // The relation column drives order.notes; ownerType/id alone is
+            // not enough (the detail view reads the relation).
+            orderOwnerId: orderId,
+            body: `[Review] ${assignment.note}`,
+            createdBy: userId,
+          },
+        });
+      }
+    }
+
+    // Approval moves the order into the packing queue. The conditional
+    // update makes concurrent approvals safe (only one wins).
+    const claimed = await this.prisma.order.updateMany({
+      where: { id: orderId, stage: 'review' },
+      data: {
+        stage: 'packing',
+        stageUpdatedAt: new Date(),
+        stageUpdatedBy: userId,
+        version: { increment: 1 },
+      },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException(
+        'This order was already moved out of review; refresh the queue.',
+      );
+    }
+    await this.prisma.orderStageEvent.create({
+      data: {
+        orderId,
+        fromStage: 'review',
+        toStage: 'packing',
+        action: 'reviewed',
+        actorId: userId,
+        note: assignment?.note ?? null,
+        metadata: {
+          shippingRegionId: assignment?.shippingRegionId ?? null,
+          categoryId: assignment?.categoryId ?? null,
+        },
+      },
+    });
   }
 
   private async getChecked(id: string) {

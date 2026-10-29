@@ -1,19 +1,25 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/modal";
-import { useNavigate } from "react-router";
+import { useNavigate, useRouteLoaderData } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api-client/client";
+import { ImageUrlsEditor } from "./image-urls-editor";
+import { PageHeader, Card, EmptyState, buttonClasses, Mono } from "../../components/ui";
 import type { ItemListResponse } from "../../types/item";
+import type { rootLoader } from "../../layouts/root-loader";
 
 export default function ItemsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const root = useRouteLoaderData<typeof rootLoader>("root");
+  const canCreate = new Set(root?.user.permissions ?? []).has("items:create");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(1);
+  const [newImages, setNewImages] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
@@ -32,6 +38,8 @@ export default function ItemsPage() {
     const { data, response } = await api.POST("/api/v1/items", {
       body: {
         name: String(formData.get("name") ?? "").trim(),
+        nameEn: String(formData.get("nameEn") ?? "").trim(),
+        images: newImages.filter(Boolean),
         description: String(formData.get("description") ?? "").trim() || undefined,
         category: String(formData.get("category") ?? "").trim() || undefined,
       },
@@ -44,17 +52,21 @@ export default function ItemsPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("items.title")}</h1>
-        <button
-          type="button"
-          onClick={() => setCreating((value) => !value)}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          {creating ? t("common.cancel") : t("items.newItem")}
-        </button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title={t("items.title")}
+        actions={
+          canCreate ? (
+            <button
+              type="button"
+              onClick={() => setCreating((value) => !value)}
+              className={creating ? buttonClasses.secondary : buttonClasses.primary}
+            >
+              {creating ? t("common.cancel") : t("items.newItem")}
+            </button>
+          ) : undefined
+        }
+      />
 
       {creating ? (
         <Modal title={t("items.newItem")} onClose={() => setCreating(false)}>
@@ -68,24 +80,36 @@ export default function ItemsPage() {
           <label htmlFor="item-name" className="self-center font-medium">
             {t("items.name")}
           </label>
-          <input id="item-name" name="name" required className="rounded border border-slate-300 px-2 py-1" />
+          <input id="item-name" name="name" required className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
+          <label htmlFor="item-name-en" className="self-center font-medium">
+            {t("inventory.nameEnLabel")}
+          </label>
+          <input id="item-name-en" name="nameEn" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
+          <label htmlFor="item-images" className="self-center font-medium">
+            {t("items.imagesLabel")}
+          </label>
+          <ImageUrlsEditor
+            id="item-images"
+            value={newImages}
+            onChange={setNewImages}
+          />
           <label htmlFor="item-category" className="self-center font-medium">
             {t("items.category")}
           </label>
-          <input id="item-category" name="category" className="rounded border border-slate-300 px-2 py-1" />
+          <input id="item-category" name="category" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
           <label htmlFor="item-description" className="self-center font-medium">
             {t("items.description")}
           </label>
-          <textarea id="item-description" name="description" rows={2} className="rounded border border-slate-300 px-2 py-1" />
+          <textarea id="item-description" name="description" rows={2} className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
           <div />
-          <button type="submit" className="justify-self-start rounded bg-slate-700 px-3 py-1.5 text-white hover:bg-slate-600">
+          <button type="submit" className={`justify-self-start ${buttonClasses.primary}`}>
             {t("items.createItem")}
           </button>
         </form>
         </Modal>
       ) : null}
 
-      <div className="mt-4 flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
         <input
           value={search}
           onChange={(event) => {
@@ -93,7 +117,7 @@ export default function ItemsPage() {
             setPage(1);
           }}
           placeholder={t("items.searchByName")}
-          className="w-64 rounded border border-slate-300 px-2 py-1"
+          className="w-64 rounded-lg border border-ink/20 bg-white px-2.5 py-1.5"
         />
         <input
           value={category}
@@ -102,9 +126,9 @@ export default function ItemsPage() {
             setPage(1);
           }}
           placeholder="Filter by category…"
-          className="w-56 rounded border border-slate-300 px-2 py-1"
+          className="w-56 rounded-lg border border-ink/20 bg-white px-2.5 py-1.5"
         />
-        <label className="flex items-center gap-1">
+        <label className="flex items-center gap-1.5 text-slate-600">
           <input
             type="checkbox"
             checked={archived}
@@ -117,54 +141,51 @@ export default function ItemsPage() {
         </label>
       </div>
 
-      <table className="mt-3 w-full border-collapse bg-white text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500">
-            <th className="px-3 py-2 font-medium">{t("items.name")}</th>
-            <th className="px-3 py-2 font-medium">{t("items.category")}</th>
-            <th className="px-3 py-2 font-medium">{t("items.variants")}</th>
-            <th className="px-3 py-2 font-medium">{t("items.notes")}</th>
-            <th className="px-3 py-2 font-medium">{t("items.updated")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {isLoading ? (
-            <tr>
-              <td colSpan={5} className="px-3 py-6 text-slate-400">
-                Loading…
-              </td>
-            </tr>
-          ) : isError ? (
-            <tr>
-              <td colSpan={5} className="px-3 py-6 text-red-600">
-                {(error as Error).message}
-              </td>
-            </tr>
-          ) : data && data.items.length > 0 ? (
-            data.items.map((item) => (
-              <tr
-                key={item.id}
-                onClick={() => navigate(`/items/${item.id}`)}
-                className="cursor-pointer border-b border-slate-100 hover:bg-slate-50"
-              >
-                <td className="px-3 py-2 font-medium">{item.name}</td>
-                <td className="px-3 py-2">{item.category ?? "—"}</td>
-                <td className="px-3 py-2">{item._count?.variants ?? 0}</td>
-                <td className="px-3 py-2">{item._count?.notes ?? 0}</td>
-                <td className="px-3 py-2 text-slate-500">
-                  {new Date(item.updatedAt).toLocaleString()}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={5} className="px-3 py-6 text-slate-400">
-                No items found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {isLoading ? (
+        <Card><p className="text-sm text-slate-400">Loading…</p></Card>
+      ) : isError ? (
+        <Card><p className="text-sm text-red-600">{(error as Error).message}</p></Card>
+      ) : data && data.items.length > 0 ? (
+        <Card className="overflow-hidden">
+          <div className="-m-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="px-4 py-2.5 font-semibold">{t("items.name")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("items.category")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("items.variants")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("items.notes")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("items.updated")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => navigate(`/items/${item.id}`)}
+                    className="cursor-pointer border-b border-ink/5 transition-colors last:border-0 hover:bg-pill"
+                  >
+                    <td className="px-4 py-2.5 font-medium text-ink">
+                      {item.name}
+                      {item.nameEn && item.nameEn !== item.name ? (
+                        <span className="ml-1.5 text-xs font-normal text-slate-400">· {item.nameEn}</span>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2.5">{item.category ?? "—"}</td>
+                    <td className="px-3 py-2.5"><Mono>{item._count?.variants ?? 0}</Mono></td>
+                    <td className="px-3 py-2.5"><Mono>{item._count?.notes ?? 0}</Mono></td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      {new Date(item.updatedAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : (
+        <EmptyState message="No items found." />
+      )}
 
       {data && data.pageCount > 1 ? (
         <div className="mt-3 flex items-center gap-3 text-sm">
@@ -172,7 +193,7 @@ export default function ItemsPage() {
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((value) => value - 1)}
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
+            className={buttonClasses.secondary}
           >
             {t("common.previous")}
           </button>
@@ -183,7 +204,7 @@ export default function ItemsPage() {
             type="button"
             disabled={page >= data.pageCount}
             onClick={() => setPage((value) => value + 1)}
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
+            className={buttonClasses.secondary}
           >
             {t("common.next")}
           </button>

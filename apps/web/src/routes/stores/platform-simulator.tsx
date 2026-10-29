@@ -114,7 +114,7 @@ export function PlatformSimulator() {
   };
 
   return (
-    <div className="mt-8 rounded border border-dashed border-slate-300 bg-slate-50 p-4">
+    <div className="mt-8 rounded-xl border border-dashed border-ink/20 bg-pill p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700">
           {t("stores.simulator.title")}
@@ -135,7 +135,7 @@ export function PlatformSimulator() {
           <select
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
-            className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-2 w-full rounded-lg border border-ink/20 px-2 py-1 text-sm"
           >
             <option value="">{t("stores.simulator.selectOrder")}</option>
             {(orders.data ?? []).map((o) => (
@@ -148,7 +148,7 @@ export function PlatformSimulator() {
             value={buyerNote}
             onChange={(e) => setBuyerNote(e.target.value)}
             placeholder={t("stores.simulator.newBuyerNote") ?? ""}
-            className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-2 w-full rounded-lg border border-ink/20 px-2 py-1 text-sm"
           />
           <button
             type="button"
@@ -167,7 +167,7 @@ export function PlatformSimulator() {
           <select
             value={listingId}
             onChange={(e) => setListingId(e.target.value)}
-            className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-2 w-full rounded-lg border border-ink/20 px-2 py-1 text-sm"
           >
             <option value="">{t("stores.simulator.selectListing")}</option>
             {(listings.data ?? []).map((l) => (
@@ -180,7 +180,7 @@ export function PlatformSimulator() {
             value={listingTitle}
             onChange={(e) => setListingTitle(e.target.value)}
             placeholder={t("stores.simulator.newListingTitle") ?? ""}
-            className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-2 w-full rounded-lg border border-ink/20 px-2 py-1 text-sm"
           />
           <button
             type="button"
@@ -209,7 +209,7 @@ export function PlatformSimulator() {
                   (store.settings?.simOutbound as string | undefined) ?? "synced"
                 }
                 onChange={(e) => void setSimOutcome(store.id, e.target.value)}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                className="rounded-lg border border-ink/20 px-2 py-1 text-sm"
               >
                 <option value="synced">{t("stores.simulator.outcomeSynced")}</option>
                 <option value="partial">{t("stores.simulator.outcomePartial")}</option>

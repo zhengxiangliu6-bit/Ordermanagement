@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouteLoaderData } from "react-router";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api-client/client";
+import { buttonClasses } from "../../components/ui";
 import type { rootLoader } from "../../layouts/root-loader";
 
 interface ShippingSettings {
@@ -198,14 +199,14 @@ export default function ShippingSettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-semibold">{t("shipments.settingsTitle")}</h1>
+      <h1 className="font-display text-2xl leading-tight text-ink">{t("shipments.settingsTitle")}</h1>
       {error ? (
         <p className="mt-2 text-sm text-red-600" role="alert">
           {error}
         </p>
       ) : null}
 
-      <section className="mt-4 rounded border border-slate-200 bg-white p-4">
+      <section className="mt-4 rounded-xl border border-ink/10 pop-shadow-sm bg-white p-4">
         <h2 className="text-base font-semibold">
           {t("shipments.settingsGlobalTitle")}
         </h2>
@@ -216,7 +217,7 @@ export default function ShippingSettingsPage() {
               value={draft.initialSyncPolicy}
               disabled={!canManage}
               onChange={(e) => setDraft({ ...draft, initialSyncPolicy: e.target.value })}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 disabled:bg-pill"
             >
               {POLICY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -231,7 +232,7 @@ export default function ShippingSettingsPage() {
               value={draft.revisionSyncPolicy}
               disabled={!canManage}
               onChange={(e) => setDraft({ ...draft, revisionSyncPolicy: e.target.value })}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 disabled:bg-pill"
             >
               {POLICY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -247,7 +248,7 @@ export default function ShippingSettingsPage() {
               disabled={!canManage}
               onChange={(e) => setDraft({ ...draft, externalTimezone: e.target.value })}
               placeholder="Asia/Shanghai"
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs disabled:bg-pill"
             />
           </label>
           <label className="text-sm">
@@ -259,7 +260,7 @@ export default function ShippingSettingsPage() {
                 setDraft({ ...draft, ownSiteTrackingUrlTemplate: e.target.value || null })
               }
               placeholder="https://track.attaky.com/{number}"
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs disabled:bg-pill"
             />
             <span className="mt-0.5 block text-xs text-slate-400">
               {t("shipments.ownSiteTemplateHint")}
@@ -278,7 +279,7 @@ export default function ShippingSettingsPage() {
                 patchSchedule({ fixedTime: e.target.value || null })
               }
               placeholder="17:30"
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs disabled:bg-pill"
             />
           </label>
           <label className="text-sm">
@@ -288,7 +289,7 @@ export default function ShippingSettingsPage() {
               disabled={!canManage}
               onChange={(e) => patchSchedule({ windowStart: e.target.value || null })}
               placeholder="09:00"
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs disabled:bg-pill"
             />
           </label>
           <label className="text-sm">
@@ -298,7 +299,7 @@ export default function ShippingSettingsPage() {
               disabled={!canManage}
               onChange={(e) => patchSchedule({ windowEnd: e.target.value || null })}
               placeholder="18:00"
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-xs disabled:bg-slate-100"
+              className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs disabled:bg-pill"
             />
           </label>
         </div>
@@ -338,14 +339,14 @@ export default function ShippingSettingsPage() {
                   schedule: draft.schedule,
                 })
               }
-            className="mt-4 rounded bg-slate-800 px-3 py-1.5 text-sm text-white hover:bg-slate-700"
+            className={buttonClasses.primary}
           >
             {t("shipments.settingsSave")}
           </button>
         ) : null}
       </section>
 
-      <section className="mt-4 rounded border border-slate-200 bg-white p-4">
+      <section className="mt-4 rounded-xl border border-ink/10 pop-shadow-sm bg-white p-4">
         <h2 className="text-base font-semibold">
           {t("shipments.storeOverridesTitle")}
         </h2>
@@ -380,7 +381,7 @@ export default function ShippingSettingsPage() {
                             },
                       })
                     }
-                    className="rounded border border-slate-300 px-2 py-1 text-xs disabled:bg-slate-100"
+                    className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs disabled:bg-pill"
                   >
                     <option value="">
                       {t(kind === "initial" ? "shipments.policyInitial" : "shipments.policyRevision")}
@@ -402,7 +403,7 @@ export default function ShippingSettingsPage() {
                   disabled={!canManage}
                   value={jumpMode}
                   onChange={(e) => changeTrackingJumpMode(store, e.target.value)}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs disabled:bg-slate-100"
+                  className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs disabled:bg-pill"
                   aria-label={t("shipments.trackingJumpLabel")}
                 >
                   {TRACKING_JUMP_MODES.map((option) => (
@@ -418,7 +419,7 @@ export default function ShippingSettingsPage() {
                     disabled={!canManage}
                     onBlur={(e) => changeTrackingJumpTemplate(store, e.target.value)}
                     placeholder="https://track.example.com/{number}"
-                    className="max-w-full flex-1 rounded border border-slate-300 px-2 py-1 font-mono text-xs disabled:bg-slate-100 sm:w-96"
+                    className="max-w-full flex-1 rounded-lg border border-ink/20 bg-white px-2 py-1 font-mono text-xs disabled:bg-pill sm:w-96"
                     aria-label={t("shipments.trackingJumpTemplateLabel")}
                   />
                 ) : null}

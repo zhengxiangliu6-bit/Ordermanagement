@@ -17,7 +17,7 @@ export function RouteErrorBoundary() {
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="mt-4 rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+        className="mt-4 rounded-lg border border-ink/20 px-3 py-1.5 text-sm hover:bg-pill"
       >
         {t("errorBoundary.reload")}
       </button>

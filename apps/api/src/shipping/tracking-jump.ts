@@ -53,7 +53,18 @@ export function readTrackingJump(settings: unknown): TrackingJumpConfig {
     candidate.customUrlTemplate.trim().length > 0
       ? candidate.customUrlTemplate.trim()
       : null;
-  return { mode: candidate.mode as TrackingJumpMode, customUrlTemplate: template };
+  if (template === null) return { mode: candidate.mode as TrackingJumpMode, customUrlTemplate: null };
+  // Bad stored templates (e.g. full-width punctuation written before the
+  // strict validation existed) fall back to the default instead of
+  // producing broken links.
+  try {
+    return {
+      mode: candidate.mode as TrackingJumpMode,
+      customUrlTemplate: validateOwnSiteTemplate(template),
+    };
+  } catch {
+    return DEFAULT_TRACKING_JUMP;
+  }
 }
 
 /** Strict validation for the settings PATCH surface (rejects instead of falling back). */
@@ -79,15 +90,29 @@ export function validateTrackingJumpInput(input: unknown): TrackingJumpConfig {
   if (mode === 'custom' && template === null) {
     throw new Error('trackingJump.customUrlTemplate is required for mode=custom');
   }
-  if (template !== null && !template.includes('{number}')) {
-    throw new Error('trackingJump.customUrlTemplate must contain the {number} placeholder');
+  if (template !== null) {
+    // Reuse the strict URL hygiene (rejects full-width punctuation etc.).
+    const validated = validateOwnSiteTemplate(template);
+    return { mode, customUrlTemplate: validated };
   }
-  return { mode, customUrlTemplate: template };
+  return { mode, customUrlTemplate: null };
 }
 
-/** URL-template hygiene shared with the global setting (throws on a bad template). */
+/**
+ * URL-template hygiene shared with the global setting (throws on a bad
+ * template). Full-width punctuation (Chinese IME artifacts like ？) and
+ * non-URL inputs are rejected: they produce silently broken links.
+ */
 export function validateOwnSiteTemplate(input: string): string {
   const template = input.trim();
+  if (!/^https?:\/\/[^\s]+$/.test(template)) {
+    throw new Error('Template must be an http(s) URL, e.g. https://track.example.com/{number}');
+  }
+  if (!/^[\x20-\x7E]+$/.test(template)) {
+    throw new Error(
+      'Template must contain ASCII characters only (check for full-width punctuation such as ？ / ：)',
+    );
+  }
   if (!template.includes('{number}')) {
     throw new Error('Template must contain the {number} placeholder');
   }

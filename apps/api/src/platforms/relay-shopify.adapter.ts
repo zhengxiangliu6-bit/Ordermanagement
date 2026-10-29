@@ -95,6 +95,7 @@ export function normalizeShopifyProduct(product: ShopifyProduct): ExternalListin
     sourceUpdatedAt: product.updatedAt,
     variants: (product.variants?.nodes ?? []).map((variant) => ({
       externalVariantId: variant.id,
+      title: variant.title ?? null,
       // Shopify allows variants without a SKU; undefined keeps the column
       // nullable instead of persisting a fake value.
       externalSku: variant.sku ?? undefined,

@@ -65,13 +65,6 @@ export class UsersAdminService {
       .then((users) => users.map(toUserAdminView));
   }
 
-  listRoles() {
-    return this.prisma.role.findMany({
-      orderBy: { createdAt: 'asc' },
-      select: { key: true, name: true, permissions: true },
-    });
-  }
-
   /**
    * Creates an internal account with a one-time temporary password. Public
    * self-registration stays disabled; the returned password is shown once
@@ -148,8 +141,7 @@ export class UsersAdminService {
   }
 
   /** Issues a new one-time password; revokes sessions and forces a change. */
-  async resetPassword(userId: string, actorId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  async resetPassword(userId: string, actorId: string) {    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found.');
 
     const temporaryPassword = generateTemporaryPassword();
@@ -202,6 +194,49 @@ export class UsersAdminService {
       include: userWithRoles,
     });
     return toUserAdminView(updated);
+  }
+
+  /**
+   * Permanently removes an account. Sessions, credentials and role
+   * assignments cascade; authored notes stay with a null author (the note
+   * history is business data and must survive account removal).
+   *
+   * Refuses deleting yourself and the last remaining administrator so the
+   * system can never be locked out of administration.
+   */
+  async deleteUser(userId: string, actorId: string) {
+    if (userId === actorId) {
+      throw new ConflictException('You cannot delete your own account.');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: userWithRoles,
+    });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const isAdmin = user.roles.some((userRole) => userRole.role.key === 'admin');
+    if (isAdmin) {
+      const adminCount = await this.prisma.userRole.count({
+        where: { role: { key: 'admin' } },
+      });
+      if (adminCount <= 1) {
+        throw new ConflictException('You cannot delete the last administrator.');
+      }
+    }
+
+    await this.prisma.user.delete({ where: { id: userId } });
+    await this.audit.record({
+      actorId,
+      action: 'user.deleted',
+      objectType: 'User',
+      objectId: userId,
+      before: {
+        email: user.email,
+        displayName: user.name,
+        roleKeys: user.roles.map((userRole) => userRole.role.key),
+      },
+    });
+    return { ok: true };
   }
 
   /** Clears the forced-change flag after a successful password change. */

@@ -8,6 +8,8 @@
 
 export interface ExternalVariant {
   externalVariantId: string;
+  /** Platform-side variant name (e.g. Shopify variant title). */
+  title?: string | null;
   externalSku?: string;
   optionValues?: Record<string, unknown>;
 }

@@ -170,11 +170,61 @@ export class CreateOrderLinkDto {
   relatedOrderId!: string;
 }
 
+export class CancelOrderDto {
+  @ApiPropertyOptional({ description: 'Optional cancellation reason (audited).', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
 export class ListOrdersQueryDto {
   @ApiPropertyOptional({ enum: ['external', 'manual'] })
   @IsOptional()
   @IsIn(['external', 'manual'])
   source?: string;
+
+  @ApiPropertyOptional({
+    enum: ['active', 'finished'],
+    description: 'M7 list grouping: active workflow vs finished (completed/cancelled).',
+  })
+  @IsOptional()
+  @IsIn(['active', 'finished'])
+  stageGroup?: string;
+
+  @ApiPropertyOptional({
+    enum: ['unfulfilled', 'fulfilled', 'cancelled'],
+    description: 'M7 operational status filter (partial fulfillment counts as unfulfilled).',
+  })
+  @IsOptional()
+  @IsIn(['unfulfilled', 'fulfilled', 'cancelled'])
+  status?: string;
+
+  @ApiPropertyOptional({
+    description: 'Deprecated hard-coded region filter (kept for compatibility).',
+    enum: ['china', 'canada'],
+  })
+  @IsOptional()
+  @IsIn(['china', 'canada'])
+  region?: string;
+
+  @ApiPropertyOptional({ description: 'M7 shipping region filter (ShippingRegion id).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  shippingRegionId?: string;
+
+  @ApiPropertyOptional({ description: 'Legacy shipping method filter.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  shippingMethodId?: string;
+
+  @ApiPropertyOptional({ description: 'M7 category filter (Category id).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  categoryId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -208,4 +258,82 @@ export class ListOrdersQueryDto {
   @Min(1)
   @Max(100)
   pageSize?: number = 20;
+}
+
+export class ReviewCustomerDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  addressLine1?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  addressLine2?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  postalCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  country?: string;
+}
+
+export class ReviewItemLineDto {
+  @ApiPropertyOptional({ description: 'Existing order line id; omit to add a new line.' })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiProperty({ minLength: 1, maxLength: 300 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  title!: string;
+
+  @ApiProperty({ default: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+}
+
+export class ReviewItemsDto {
+  @ApiProperty({ type: [ReviewItemLineDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ReviewItemLineDto)
+  lines!: ReviewItemLineDto[];
 }

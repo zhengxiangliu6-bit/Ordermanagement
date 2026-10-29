@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsInt,
@@ -20,6 +22,12 @@ export class CreateItemDto {
   @MaxLength(200)
   name!: string;
 
+  @ApiPropertyOptional({ description: 'English name (Canada warehouse display).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  nameEn?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -38,10 +46,11 @@ export class CreateItemDto {
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ type: Object, additionalProperties: true })
+  @ApiPropertyOptional({ type: [String], description: 'Image URLs.' })
   @IsOptional()
-  @IsObject()
-  images?: Record<string, unknown>;
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }
 
 export class UpdateItemDto {
@@ -52,6 +61,12 @@ export class UpdateItemDto {
   @MaxLength(200)
   name?: string;
 
+  @ApiPropertyOptional({ description: 'English name (Canada warehouse display).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  nameEn?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -70,10 +85,11 @@ export class UpdateItemDto {
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ type: Object, additionalProperties: true })
+  @ApiPropertyOptional({ type: [String], description: 'Image URLs.' })
   @IsOptional()
-  @IsObject()
-  images?: Record<string, unknown>;
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }
 
 export class CreateItemVariantDto {
@@ -83,15 +99,44 @@ export class CreateItemVariantDto {
   @MaxLength(200)
   name!: string;
 
+  @ApiPropertyOptional({ description: 'English name (Canada warehouse display).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  nameEn?: string;
+
   @ApiPropertyOptional({ type: Object, additionalProperties: true })
   @IsOptional()
   @IsObject()
   optionValues?: Record<string, unknown>;
 
-  @ApiPropertyOptional({ type: Object, additionalProperties: true })
+  @ApiPropertyOptional({ type: [String], description: 'Image URLs.' })
   @IsOptional()
-  @IsObject()
-  images?: Record<string, unknown>;
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+}
+
+export class VariantBatchAxisDto {
+  @ApiProperty({ example: 'Color' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name!: string;
+
+  @ApiProperty({ example: ['Ice', 'Dawn', 'Powder'] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  values!: string[];
+}
+
+export class CreateItemVariantsBatchDto {
+  @ApiProperty({ type: [VariantBatchAxisDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(3)
+  axes!: VariantBatchAxisDto[];
 }
 
 export class UpdateItemVariantDto extends PartialType(CreateItemVariantDto) {}

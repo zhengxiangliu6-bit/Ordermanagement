@@ -16,9 +16,12 @@ suite('shipments views and tracking e2e', () => {
   let app: INestApplication;
   let agent: request.Agent;
   let adminCookie: string[];
+  let shippingRegionId = '';
+  let categoryId = '';
   let staffCookie: string[] = [];
   let prisma: PrismaService;
   let executor: OutboundExecutorService;
+  let savedOwnSiteTemplate: string | null | undefined;
 
   const suffix = randomBytes(4).toString('hex');
   const staffEmail = `staff-views-${suffix}@example.com`;
@@ -54,6 +57,16 @@ suite('shipments views and tracking e2e', () => {
       .send({ email: process.env.ADMIN_EMAIL ?? 'admin@example.com', password })
       .expect(200);
     adminCookie = login.headers['set-cookie'] as unknown as string[];
+    const regions = await agent
+      .get('/api/v1/shipping-regions')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    shippingRegionId = (regions.body as Array<{ id: string }>)[0].id;
+    const categories = await agent
+      .get('/api/v1/categories')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    categoryId = (categories.body as Array<{ id: string }>)[0].id;
 
     const staffCreated = await agent
       .post('/api/v1/users')
@@ -73,12 +86,21 @@ suite('shipments views and tracking e2e', () => {
       .expect(200);
 
     // Pin the settings this suite asserts against (parallel spec files).
+    // The global own-site tracking template is saved and cleared — the
+    // tracking assertions below rely on the M4 fallback behavior — and
+    // restored in afterAll so live configuration survives the run.
+    const settingsBefore = await agent
+      .get('/api/v1/shipping-settings')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    savedOwnSiteTemplate = settingsBefore.body.ownSiteTrackingUrlTemplate ?? null;
     await agent
       .patch('/api/v1/shipping-settings')
       .set('Cookie', adminCookie)
       .send({
         initialSyncPolicy: 'review_then_immediate',
         revisionSyncPolicy: 'review_then_scheduled',
+        ownSiteTrackingUrlTemplate: null,
         schedule: {
           fixedTime: null,
           windowStart: '09:00',
@@ -161,6 +183,7 @@ suite('shipments views and tracking e2e', () => {
     await agent
       .post(`/api/v1/review-queue/${record.id}/approve`)
       .set('Cookie', adminCookie)
+      .send({ shippingRegionId, categoryId })
       .expect(201);
     const order = await prisma.order.findFirstOrThrow({
       where: { displayNumber: display },
@@ -177,6 +200,13 @@ suite('shipments views and tracking e2e', () => {
   });
 
   afterAll(async () => {
+    if (savedOwnSiteTemplate !== undefined && agent) {
+      await agent
+        .patch('/api/v1/shipping-settings')
+        .set('Cookie', adminCookie)
+        .send({ ownSiteTrackingUrlTemplate: savedOwnSiteTemplate })
+        .catch(() => undefined);
+    }
     if (prisma) {
       await prisma.order.deleteMany({
         where: { id: { in: [storeOrderId, manualOrderId].filter(Boolean) } },
@@ -187,13 +217,6 @@ suite('shipments views and tracking e2e', () => {
       await prisma.user.deleteMany({ where: { email: staffEmail } });
     }
     await app?.close();
-  });
-
-  it('dbg: staff flag state after beforeAll', async () => {
-    const u = await prisma.user.findUnique({ where: { email: staffEmail } });
-    console.log('DBG flag after beforeAll:', u?.mustChangePassword, u?.updatedAt.toISOString());
-    const sessions = await prisma.session.count({ where: { user: { email: staffEmail } } });
-    console.log('DBG staff sessions:', sessions);
   });
 
   it('lists shipments with sanitized carrier data for staff (§12.14)', async () => {

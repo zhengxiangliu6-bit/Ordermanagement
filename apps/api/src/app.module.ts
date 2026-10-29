@@ -17,6 +17,8 @@ import { StoresModule } from './stores/stores.module';
 import { SyncModule } from './sync/sync.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { UsersModule } from './users/users.module';
+import { CategoriesModule } from './categories/categories.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { UsersModule } from './users/users.module';
     StoresModule,
     SyncModule,
     UsersModule,
+    CategoriesModule,
+    InventoryModule,
     AuthModule,
     ShippingModule,
   ],

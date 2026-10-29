@@ -424,6 +424,40 @@
         ]
       }
     },
+    "/api/v1/items/{id}/variants/batch": {
+      "post": {
+        "operationId": "ItemsController_createVariantsBatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemVariantsBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Generate variants from option axes (cartesian product, auto names).",
+        "tags": [
+          "items"
+        ]
+      }
+    },
     "/api/v1/items/{id}/variants/{variantId}": {
       "patch": {
         "operationId": "ItemsController_updateVariant",
@@ -464,6 +498,36 @@
         "tags": [
           "items"
         ]
+      },
+      "delete": {
+        "operationId": "ItemsController_deleteVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Permanently delete an unreferenced variant; referenced ones can only be archived.",
+        "tags": [
+          "items"
+        ]
       }
     },
     "/api/v1/items/{id}/variants/{variantId}/archive": {
@@ -493,6 +557,38 @@
           }
         },
         "summary": "Archive a variant.",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/api/v1/items/{id}/variants/{variantId}/restore": {
+      "post": {
+        "operationId": "ItemsController_restoreVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Restore an archived variant.",
         "tags": [
           "items"
         ]
@@ -730,6 +826,55 @@
         ]
       }
     },
+    "/api/v1/mapping/mapped": {
+      "get": {
+        "operationId": "MappingController_mapped",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Currently mapped listing variants with their item targets.",
+        "tags": [
+          "mapping"
+        ]
+      }
+    },
+    "/api/v1/mapping/auto-create": {
+      "post": {
+        "operationId": "MappingController_autoCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingAutoCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Generate internal items+variants from unmapped listings and map them; dryRun previews.",
+        "tags": [
+          "mapping"
+        ]
+      }
+    },
     "/api/v1/mapping/resolve": {
       "post": {
         "operationId": "MappingController_resolve",
@@ -779,6 +924,156 @@
         ]
       }
     },
+    "/api/v1/orders/{id}/assignment": {
+      "patch": {
+        "operationId": "OrdersController_updateAssignment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update shipping-method/category assignment (M7).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/copy": {
+      "post": {
+        "operationId": "OrdersController_copy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Duplicate an order as an editable manual order (M7 re-ship flow).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/review-items": {
+      "patch": {
+        "operationId": "OrdersController_reviewItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewItemsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Edit the ordered product lines during unfulfilled review.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/review-customer": {
+      "patch": {
+        "operationId": "OrdersController_reviewCustomer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Edit the customer snapshot during unfulfilled review.",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/cancel": {
+      "post": {
+        "operationId": "OrdersController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Manually cancel an order (local cancellation; audit recorded).",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/api/v1/orders": {
       "post": {
         "operationId": "OrdersController_createManual",
@@ -816,6 +1111,73 @@
                 "external",
                 "manual"
               ]
+            }
+          },
+          {
+            "name": "stageGroup",
+            "required": false,
+            "in": "query",
+            "description": "M7 list grouping: active workflow vs finished (completed/cancelled).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "finished"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "M7 operational status filter (partial fulfillment counts as unfulfilled).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unfulfilled",
+                "fulfilled",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "region",
+            "required": false,
+            "in": "query",
+            "description": "Deprecated hard-coded region filter (kept for compatibility).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "china",
+                "canada"
+              ]
+            }
+          },
+          {
+            "name": "shippingRegionId",
+            "required": false,
+            "in": "query",
+            "description": "M7 shipping region filter (ShippingRegion id).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shippingMethodId",
+            "required": false,
+            "in": "query",
+            "description": "Legacy shipping method filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "M7 category filter (Category id).",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -1144,6 +1506,454 @@
         ]
       }
     },
+    "/api/v1/inventory/items": {
+      "get": {
+        "operationId": "InventoryController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List catalog items with variants and stock.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/items/{id}/movements": {
+      "get": {
+        "operationId": "InventoryController_movements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "outbound",
+                "return",
+                "adjust_in",
+                "adjust_out",
+                "stocktake"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "variantId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to one variant of the item.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "warehouse",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "china",
+                "canada"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paginated movement history for a catalog item.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}": {
+      "get": {
+        "operationId": "InventoryController_variantDetail",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Stock detail for one product variant.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/movements": {
+      "get": {
+        "operationId": "InventoryController_variantMovements",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "outbound",
+                "return",
+                "adjust_in",
+                "adjust_out",
+                "stocktake"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "variantId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to one variant of the item.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "warehouse",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "china",
+                "canada"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paginated movement history for one product variant.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/adjust": {
+      "post": {
+        "operationId": "InventoryController_adjust",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Apply a signed stock adjustment (inbound / write-off).",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/archive": {
+      "post": {
+        "operationId": "InventoryController_archiveVariant",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseArchiveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Archive a product variant in one warehouse (keeps the other active).",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/restore": {
+      "post": {
+        "operationId": "InventoryController_restoreVariant",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseArchiveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Restore a warehouse-archived product variant.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/warehouse-stock": {
+      "delete": {
+        "operationId": "InventoryController_deleteWarehouseStock",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "warehouse",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "china",
+                "canada"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete one warehouse stock row (direct delete of archived stock).",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/stocktake": {
+      "post": {
+        "operationId": "InventoryController_stocktake",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StocktakeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Stocktake: set the counted quantity for a warehouse.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/variants/{variantId}/threshold": {
+      "patch": {
+        "operationId": "InventoryController_setThreshold",
+        "parameters": [
+          {
+            "name": "variantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThresholdDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Set the low-stock threshold for a warehouse.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/stocktake-batch": {
+      "post": {
+        "operationId": "InventoryController_stocktakeBatch",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Batch stocktake with per-entry and batch notes.",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
     "/api/v1/review-queue": {
       "get": {
         "operationId": "ReviewController_list",
@@ -1187,6 +1997,30 @@
           }
         },
         "summary": "Get one review record.",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/v1/review-queue/{id}/note": {
+      "patch": {
+        "operationId": "ReviewController_saveNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Save a reviewer note on a pending record (M7).",
         "tags": [
           "review"
         ]
@@ -1809,6 +2643,567 @@
         ]
       }
     },
+    "/api/v1/shipping-methods": {
+      "get": {
+        "operationId": "ShippingMethodsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List shipping methods (enabled first, then sortOrder).",
+        "tags": [
+          "shipping-methods"
+        ]
+      },
+      "post": {
+        "operationId": "ShippingMethodsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingMethodDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a shipping method.",
+        "tags": [
+          "shipping-methods"
+        ]
+      }
+    },
+    "/api/v1/shipping-methods/{id}": {
+      "patch": {
+        "operationId": "ShippingMethodsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a shipping method.",
+        "tags": [
+          "shipping-methods"
+        ]
+      },
+      "delete": {
+        "operationId": "ShippingMethodsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a shipping method; orders referencing it keep history (SET NULL).",
+        "tags": [
+          "shipping-methods"
+        ]
+      }
+    },
+    "/api/v1/shipping-regions": {
+      "get": {
+        "operationId": "ShippingRegionsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List shipping regions (enabled first, then sortOrder).",
+        "tags": [
+          "shipping-regions"
+        ]
+      },
+      "post": {
+        "operationId": "ShippingRegionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingRegionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a shipping region.",
+        "tags": [
+          "shipping-regions"
+        ]
+      }
+    },
+    "/api/v1/shipping-regions/{id}": {
+      "patch": {
+        "operationId": "ShippingRegionsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a shipping region.",
+        "tags": [
+          "shipping-regions"
+        ]
+      },
+      "delete": {
+        "operationId": "ShippingRegionsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a shipping region; orders referencing it keep history (SET NULL).",
+        "tags": [
+          "shipping-regions"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/packing": {
+      "get": {
+        "operationId": "ShippingWorkController_packing",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Orders waiting to be packed (weight/dimensions).",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/ordering": {
+      "get": {
+        "operationId": "ShippingWorkController_ordering",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Packed orders waiting for carrier + tracking.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/inspection": {
+      "get": {
+        "operationId": "ShippingWorkController_inspection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Orders waiting for the spot-check confirmation.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/tail": {
+      "get": {
+        "operationId": "ShippingWorkController_tail",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Completed cross-border shipments missing tail tracking.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/pack": {
+      "post": {
+        "operationId": "ShippingWorkController_pack",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackShipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Confirm packing (weight/dimensions) and move to ordering.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/packing-preview": {
+      "get": {
+        "operationId": "ShippingWorkController_packingPreview",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Second-confirmation data: products, gifts and stock deduction rows.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/return-to-review": {
+      "post": {
+        "operationId": "ShippingWorkController_returnToReview",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Return a packed order back to the unfulfilled review.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/add-ons": {
+      "post": {
+        "operationId": "ShippingWorkController_addAddOn",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAddOnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a gift/extra item while packing.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/add-ons/{addOnId}": {
+      "delete": {
+        "operationId": "ShippingWorkController_removeAddOn",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "addOnId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a gift/extra item before packing is confirmed.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/tracking": {
+      "post": {
+        "operationId": "ShippingWorkController_tracking",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Attach carrier + tracking and move to inspection.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/inspect": {
+      "post": {
+        "operationId": "ShippingWorkController_inspect",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectShipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Confirm spot-check: complete the order and push fulfillment to the store.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/tail": {
+      "post": {
+        "operationId": "ShippingWorkController_tailTracking",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TailTrackingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Save tail (last-mile) tracking for a cross-border shipment.",
+        "tags": [
+          "shipping-work"
+        ]
+      }
+    },
+    "/api/v1/problem-items": {
+      "get": {
+        "operationId": "ProblemItemsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List open problem items with order context.",
+        "tags": [
+          "problem-items"
+        ]
+      }
+    },
+    "/api/v1/problem-items/{id}/resolve": {
+      "post": {
+        "operationId": "ProblemItemsController_resolve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveProblemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Resolve a problem: cancel, restart the original, or copy a new order.",
+        "tags": [
+          "problem-items"
+        ]
+      }
+    },
+    "/api/v1/shipping-work/{orderId}/problem": {
+      "post": {
+        "operationId": "ProblemReportController_report",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProblemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Mark an order as a problem item (any stage).",
+        "tags": [
+          "problem-items"
+        ]
+      }
+    },
     "/api/v1/stores": {
       "post": {
         "operationId": "StoresController_create",
@@ -2060,13 +3455,47 @@
     "/api/v1/listings": {
       "get": {
         "operationId": "ListingsController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": false,
+            "in": "query",
+            "description": "Filter listings by store.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
           }
         },
         "summary": "Read-only listing mirror across stores.",
+        "tags": [
+          "listings"
+        ]
+      }
+    },
+    "/api/v1/listings/{id}": {
+      "get": {
+        "operationId": "ListingsController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One listing with its variant details (verification view).",
         "tags": [
           "listings"
         ]
@@ -2127,21 +3556,6 @@
           }
         },
         "summary": "Create an account with a one-time temporary password (shown once, forces change).",
-        "tags": [
-          "users"
-        ]
-      }
-    },
-    "/api/v1/users/roles": {
-      "get": {
-        "operationId": "UsersController_listRoles",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "List assignable roles.",
         "tags": [
           "users"
         ]
@@ -2239,6 +3653,124 @@
         ]
       }
     },
+    "/api/v1/users/{id}": {
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Permanently delete an account (sessions and role assignments cascade; notes keep history).",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/roles": {
+      "get": {
+        "operationId": "RolesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List roles with per-role user counts.",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "RolesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a custom role.",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/roles/{id}": {
+      "patch": {
+        "operationId": "RolesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Rename a role and/or replace its permissions.",
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "operationId": "RolesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a role; roles still assigned to users are refused.",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/v1/users/me/change-password": {
       "post": {
         "operationId": "MeActionsController_changePassword",
@@ -2276,6 +3808,90 @@
         "summary": "Return the own principal (convenience alias).",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "operationId": "CategoriesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List categories (enabled first, then sortOrder).",
+        "tags": [
+          "categories"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a category.",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/api/v1/categories/{id}": {
+      "patch": {
+        "operationId": "CategoriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a category.",
+        "tags": [
+          "categories"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoriesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a category; orders referencing it keep their historical display via SET NULL.",
+        "tags": [
+          "categories"
         ]
       }
     },
@@ -2389,6 +4005,10 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "nameEn": {
+            "type": "string",
+            "description": "English name (Canada warehouse display)."
+          },
           "description": {
             "type": "string"
           },
@@ -2402,8 +4022,11 @@
             }
           },
           "images": {
-            "type": "object",
-            "additionalProperties": true
+            "description": "Image URLs.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -2416,6 +4039,10 @@
           "name": {
             "type": "string"
           },
+          "nameEn": {
+            "type": "string",
+            "description": "English name (Canada warehouse display)."
+          },
           "description": {
             "type": "string"
           },
@@ -2429,8 +4056,11 @@
             }
           },
           "images": {
-            "type": "object",
-            "additionalProperties": true
+            "description": "Image URLs.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2442,17 +4072,62 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "nameEn": {
+            "type": "string",
+            "description": "English name (Canada warehouse display)."
+          },
           "optionValues": {
             "type": "object",
             "additionalProperties": true
           },
           "images": {
-            "type": "object",
-            "additionalProperties": true
+            "description": "Image URLs.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "name"
+        ]
+      },
+      "VariantBatchAxisDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Color"
+          },
+          "values": {
+            "example": [
+              "Ice",
+              "Dawn",
+              "Powder"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "values"
+        ]
+      },
+      "CreateItemVariantsBatchDto": {
+        "type": "object",
+        "properties": {
+          "axes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantBatchAxisDto"
+            }
+          }
+        },
+        "required": [
+          "axes"
         ]
       },
       "UpdateItemVariantDto": {
@@ -2463,13 +4138,20 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "nameEn": {
+            "type": "string",
+            "description": "English name (Canada warehouse display)."
+          },
           "optionValues": {
             "type": "object",
             "additionalProperties": true
           },
           "images": {
-            "type": "object",
-            "additionalProperties": true
+            "description": "Image URLs.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2486,6 +4168,18 @@
           "body"
         ]
       },
+      "MappingAutoCreateDto": {
+        "type": "object",
+        "properties": {
+          "storeId": {
+            "type": "string"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "Preview the plan without writing."
+          }
+        }
+      },
       "MappingResolveDto": {
         "type": "object",
         "properties": {
@@ -2500,6 +4194,81 @@
           "listingVariantId",
           "itemVariantId"
         ]
+      },
+      "ReviewItemLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Existing order line id; omit to add a new line."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          }
+        },
+        "required": [
+          "title",
+          "quantity"
+        ]
+      },
+      "ReviewItemsDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemLineDto"
+            }
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "ReviewCustomerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "addressLine1": {
+            "type": "string"
+          },
+          "addressLine2": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "CancelOrderDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Optional cancellation reason (audited).",
+            "maxLength": 500
+          }
+        }
       },
       "OrderLineInputDto": {
         "type": "object",
@@ -2617,6 +4386,85 @@
         },
         "required": [
           "relatedOrderId"
+        ]
+      },
+      "AdjustStockDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ]
+          },
+          "delta": {
+            "type": "number",
+            "description": "Signed delta; negative for write-offs."
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "warehouse",
+          "delta"
+        ]
+      },
+      "WarehouseArchiveDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ]
+          }
+        },
+        "required": [
+          "warehouse"
+        ]
+      },
+      "StocktakeDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ]
+          },
+          "countedQuantity": {
+            "type": "number"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "warehouse",
+          "countedQuantity"
+        ]
+      },
+      "ThresholdDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ]
+          },
+          "lowThreshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "warehouse",
+          "lowThreshold"
         ]
       },
       "ApproveBatchDto": {
@@ -2799,6 +4647,14 @@
           "trackingUrlTemplate": {
             "type": "object"
           },
+          "crossBorder": {
+            "type": "boolean",
+            "description": "Cross-border carriers expose tail tracking."
+          },
+          "orderUrlTemplate": {
+            "type": "object",
+            "description": "Carrier order/print site opened from the ordering queue."
+          },
           "attakyTransform": {
             "type": "object"
           }
@@ -2868,6 +4724,10 @@
       "ShipmentEntryDto": {
         "type": "object",
         "properties": {
+          "note": {
+            "type": "string",
+            "description": "Ordering-stage note."
+          },
           "trackingNumber": {
             "type": "string",
             "example": "SF1234567890123"
@@ -2977,6 +4837,218 @@
             "example": "https://track.attaky.com/{number}"
           }
         }
+      },
+      "ShippingMethodDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ShippingRegionDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ],
+            "description": "Warehouse stock is deducted from."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PackShipmentDto": {
+        "type": "object",
+        "properties": {
+          "weightValue": {
+            "type": "number",
+            "example": 350,
+            "description": "Weight value in the chosen unit (required, > 0)."
+          },
+          "weightUnit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "kg"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "Packing-stage note."
+          },
+          "lengthValue": {
+            "type": "number",
+            "example": 30,
+            "description": "Required, > 0."
+          },
+          "widthValue": {
+            "type": "number",
+            "example": 20,
+            "description": "Required, > 0."
+          },
+          "heightValue": {
+            "type": "number",
+            "example": 10,
+            "description": "Required, > 0."
+          },
+          "dimensionUnit": {
+            "type": "string",
+            "enum": [
+              "cm",
+              "mm",
+              "in"
+            ]
+          }
+        },
+        "required": [
+          "weightValue",
+          "weightUnit",
+          "lengthValue",
+          "widthValue",
+          "heightValue",
+          "dimensionUnit"
+        ]
+      },
+      "CreateAddOnDto": {
+        "type": "object",
+        "properties": {
+          "itemVariantId": {
+            "type": "string",
+            "description": "Item variant id (preferred; drives future stock)."
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title (auto-filled from the variant by the UI)."
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "InspectShipmentDto": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "description": "Inspection-stage note."
+          }
+        }
+      },
+      "TailTrackingDto": {
+        "type": "object",
+        "properties": {
+          "tailTrackingNumber": {
+            "type": "string"
+          },
+          "tailCarrier": {
+            "type": "string"
+          },
+          "tailTrackingUrl": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "description": "Tail-stage note."
+          }
+        },
+        "required": [
+          "tailTrackingNumber"
+        ]
+      },
+      "ResolveProblemDto": {
+        "type": "object",
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "restart",
+              "copy"
+            ]
+          },
+          "returnStage": {
+            "type": "string",
+            "enum": [
+              "packing",
+              "ordering",
+              "inspection"
+            ],
+            "description": "Stage to return the order to when resolution is restart."
+          },
+          "note": {
+            "type": "string",
+            "description": "Resolution note."
+          }
+        },
+        "required": [
+          "resolution"
+        ]
+      },
+      "CreateProblemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pending_pickup",
+              "returning",
+              "address",
+              "damaged",
+              "missing",
+              "other"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "work",
+              "detail"
+            ],
+            "description": "Where the problem was reported from."
+          },
+          "content": {
+            "type": "string",
+            "description": "What the problem is; shown to the reviewer."
+          }
+        },
+        "required": [
+          "type",
+          "content"
+        ]
       },
       "CreateStoreDto": {
         "type": "object",
@@ -3104,6 +5176,48 @@
           "roleKeys"
         ]
       },
+      "CreateRoleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "key": {
+            "type": "string",
+            "description": "Optional machine key; auto-generated when omitted.",
+            "pattern": "^[a-z0-9][a-z0-9-]{1,48}$"
+          },
+          "permissions": {
+            "description": "`scope:action` permission keys.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ]
+      },
+      "UpdateRoleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ChangePasswordDto": {
         "type": "object",
         "properties": {
@@ -3119,6 +5233,29 @@
         "required": [
           "currentPassword",
           "newPassword"
+        ]
+      },
+      "CategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "trackingUrlTemplate": {
+            "type": "object",
+            "description": "Tracking-site template with {number} placeholder (R8)."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "LoginDto": {

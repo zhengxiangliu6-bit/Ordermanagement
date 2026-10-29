@@ -16,7 +16,7 @@ export interface Note {
   ownerType: string;
   ownerId: string;
   body: string;
-  createdBy: string;
+  createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
   updatedAt: string;

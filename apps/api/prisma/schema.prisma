@@ -153,6 +153,7 @@ model Store {
 model Item {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name        String
+  nameEn      String    @default("")
   description String?
   category    String?
   tags        String[]
@@ -176,6 +177,7 @@ model ItemVariant {
   // Permanent, unique, system-generated Attaky identity (§4, §26.5).
   itemCode     String    @unique
   name         String
+  nameEn       String    @default("")
   optionValues Json?
   images       Json?
   archivedAt   DateTime?
@@ -187,6 +189,9 @@ model ItemVariant {
   notes           Note[]           @relation("ItemVariantNotes")
   attachments     Attachment[]     @relation("ItemVariantAttachments")
   listingVariants ListingVariant[]
+  addOns          OrderAddOn[]
+  stocks          InventoryStock[]
+  movements       InventoryMovement[]
 
   @@index([itemId])
 }
@@ -234,6 +239,8 @@ model ListingVariant {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   listingId         String   @db.Uuid
   externalVariantId String
+  /// Platform-side variant name (e.g. Shopify variant title).
+  externalTitle     String?
   externalSku       String?
   optionValues      Json?
   // THE mapping (§8.2): a Listing Variant links to at most one Item Variant.
@@ -270,6 +277,142 @@ model ListingContentVersion {
 // Orders (§10) — external and manual; source data immutable (§11).
 // ---------------------------------------------------------------------------
 
+/// Product category (M7 R1/R3): second-level order classification with an
+/// optional tracking-site template (R8 jump-by-category).
+model Category {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String   @unique
+  trackingUrlTemplate String?
+  enabled             Boolean  @default(true)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  orders              Order[]
+}
+
+/// Configurable shipping region (M7 workflow): assigned at unfulfilled-order
+/// review and used to route the packing queue.
+model ShippingRegion {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  enabled   Boolean  @default(true)
+  // Which warehouse stock is deducted from for orders in this region.
+  warehouse String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+/// Append-only workflow history: who moved an order between stages.
+model OrderStageEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String   @db.Uuid
+  fromStage String?
+  toStage   String
+  action    String
+  actorId   String
+  note      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+/// Fulfillment problem raised from any workflow stage (M7c).
+model ProblemItem {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId          String    @db.Uuid
+  stageAtReport    String
+  type             String
+  content          String
+  // open | resolved_restart | resolved_copied | cancelled
+  status           String    @default("open")
+  // work = reported from a shipping-work queue; detail = order detail page.
+  source           String    @default("work")
+  reportedBy       String
+  reportedAt       DateTime  @default(now())
+  handledBy        String?
+  handledAt        DateTime?
+  resolutionNote   String?
+  copiedOrderId    String?   @db.Uuid
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([orderId])
+}
+
+/// Inventory item (M7d): warehouse-side article with Chinese/English names,
+/// mapped to product variants for stock deduction.
+/// Current stock per product variant per warehouse: the catalog is the
+/// single product entity and stock hangs directly off ItemVariant.
+model InventoryStock {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemVariantId String    @db.Uuid
+  warehouse     String
+  quantity      Int       @default(0)
+  lowThreshold  Int?
+  /// Warehouse-scoped archive: the same product can be archived in one
+  /// warehouse while staying active in the other.
+  archivedAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  itemVariant ItemVariant @relation(fields: [itemVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([itemVariantId, warehouse])
+}
+
+/// Append-only stock movement ledger keyed by product variant.
+model InventoryMovement {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemVariantId  String   @db.Uuid
+  warehouse      String
+  type           String
+  quantity       Int
+  resultQuantity Int
+  orderId        String?  @db.Uuid
+  actorId        String
+  note           String?
+  createdAt      DateTime @default(now())
+
+  itemVariant ItemVariant @relation(fields: [itemVariantId], references: [id], onDelete: Cascade)
+
+  @@index([itemVariantId, createdAt])
+  @@index([orderId])
+}
+
+/// Packing add-on (gift/extra item) added by the packing role (M7b).
+model OrderAddOn {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId       String   @db.Uuid
+  itemVariantId String?  @db.Uuid
+  title         String
+  quantity      Int      @default(1)
+  note          String?
+  addedBy       String
+  createdAt     DateTime @default(now())
+
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemVariant ItemVariant? @relation(fields: [itemVariantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+/// Configurable shipping method (M7 follow-up): replaces the hard-coded
+/// china/canada region at review time. Managed like product categories.
+model ShippingMethod {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
 model Order {
   id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // external | manual
@@ -280,9 +423,32 @@ model Order {
   // External display number, or a system-generated internal Order Number
   // for manual orders (§10.2).
   displayNumber        String
+  // Deprecated hard-coded region; superseded by shippingRegionId.
+  region               String?
+  // M7: configurable shipping region, assigned at unfulfilled-order review.
+  shippingRegionId     String?   @db.Uuid
+  // Legacy configurable shipping method (deferred to a later phase).
+  shippingMethodId     String?   @db.Uuid
+  // M7: product category, set/edited at new-order review.
+  categoryId           String?   @db.Uuid
+  // Workflow stage: awaiting_payment | review | packing | ordering |
+  // inspection | completed | problem | cancelled.
+  stage                String    @default("review")
+  stageUpdatedAt       DateTime  @default(now())
+  stageUpdatedBy       String?
+  // Local payment-status mirror for workflow eligibility/filtering.
+  paymentStatus        String?
+  // Optimistic concurrency for stage transitions.
+  version              Int       @default(0)
+  // Stock deduction marker: set when packing confirms the outbound.
+  stockDeductedAt      DateTime?
+  stockWarehouse       String?
   // Verbatim platform statuses; a local correction is an OrderRevision,
   // never an overwrite (§10.3).
   statusRaw            Json?
+  // Local mirror of the platform fulfillment status (uppercase) for list
+  // filtering; statusRaw stays verbatim. Null means unfulfilled/unknown.
+  fulfillmentStatus    String?
   fulfillmentRaw       Json?
   // Historical customer snapshot (§17): name/phone/email/address/...
   customerSnapshot     Json?
@@ -296,6 +462,12 @@ model Order {
   rawSource            Json?
   // Last accepted external values (three-way conflict base, §15).
   lastAcceptedExternal Json?
+  // M7: local cancellation (manual for now, all platforms). Platform
+  // cancellations are mirrored here at import; ongoing platform sync is a
+  // later step. A cancelled order is excluded from shipments.
+  cancelledAt          DateTime?
+  cancelledBy          String?
+  cancelledReason      String?
   archivedAt           DateTime?
   deletedAt            DateTime?
   deletedReason        String?
@@ -304,6 +476,12 @@ model Order {
   updatedAt            DateTime  @updatedAt
 
   store      Store?          @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  category   Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  shippingRegion ShippingRegion? @relation(fields: [shippingRegionId], references: [id], onDelete: SetNull)
+  shippingMethod ShippingMethod? @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
+  stageEvents OrderStageEvent[]
+  problemItems ProblemItem[]
+  addOns     OrderAddOn[]
   lines      OrderLine[]
   revisions  OrderRevision[]
   notes      Note[]          @relation("OrderNotes")
@@ -313,7 +491,11 @@ model Order {
 
   @@unique([storeId, externalOrderId])
   @@index([displayNumber])
+  @@index([shippingRegionId])
+  @@index([shippingMethodId])
+  @@index([stage])
   @@index([archivedAt, deletedAt])
+  @@index([cancelledAt, fulfillmentStatus])
 }
 
 model OrderLine {
@@ -372,7 +554,8 @@ model Note {
   ownerType String
   ownerId   String
   body      String
-  createdBy String
+  // Nullable so deleting an account keeps its notes (author shown as removed).
+  createdBy String?
   updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,7 +568,7 @@ model Note {
   orderLine      OrderLine?      @relation("OrderLineNotes", fields: [orderLineOwnerId], references: [id], onDelete: Cascade)
 
   // Author display data; Better Auth owns the identity, we only surface id+name.
-  createdByUser User  @relation("NoteCreatedBy", fields: [createdBy], references: [id])
+  createdByUser User? @relation("NoteCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("NoteUpdatedBy", fields: [updatedBy], references: [id])
 
   // Exactly one owner relation is set; these columns back the relations.
@@ -489,6 +672,10 @@ model Carrier {
   platformCarrierIds  Json?
   // Controlled Attaky tracking-number transformation rules (§12.4).
   attakyTransform     Json?
+  // M7b: cross-border carriers expose last-mile (tail) tracking fields.
+  crossBorder         Boolean  @default(false)
+  // Optional carrier order/print site opened from the ordering queue.
+  orderUrlTemplate    String?
   trackingProviderId  String?  @db.Uuid
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -512,8 +699,27 @@ model Shipment {
   // attaky | carrier (§12.5) — recorded per outbound revision.
   publicTrackingMode     String?
   dispatchedAt           DateTime?
-  enteredBy              String
+  enteredBy              String?
   enteredAt              DateTime  @default(now())
+  // M7b pipeline: packing / tracking / inspection data.
+  weightGrams            Int?
+  lengthCm               Int?
+  widthCm                Int?
+  heightCm               Int?
+  packedBy               String?
+  packedAt               DateTime?
+  trackingEnteredBy      String?
+  trackingEnteredAt      DateTime?
+  inspectedBy            String?
+  inspectedAt            DateTime?
+  tailTrackingNumber     String?
+  tailCarrier            String?
+  tailTrackingUrl        String?
+  tailEnteredBy          String?
+  tailEnteredAt          DateTime?
+  voidedAt               DateTime?
+  voidedBy               String?
+  voidReason             String?
   // Local Shipment Status (physical fact known by Attaky).
   localStatus            String    @default("prepared")
   // Remote Sync Status: pending_review|scheduled|sending|synced|
@@ -612,6 +818,8 @@ model ReviewRecord {
   // Hash of the proposed external revision; identical hashes are not
   // re-queued after rejection or while pending (§15).
   payloadHash   String?
+  /// M7: reviewer note saved before the approve/reject decision.
+  reviewerNote  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

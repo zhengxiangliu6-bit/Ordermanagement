@@ -8,7 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RequirePermissions } from '../rbac/require-permissions.decorator';
@@ -36,6 +36,19 @@ export class MappingQueueQueryDto {
   storeId?: string;
 }
 
+export class MappingAutoCreateDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  storeId?: string;
+
+  @ApiPropertyOptional({ description: 'Preview the plan without writing.' })
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean;
+}
+
 @ApiTags('mapping')
 @Controller('mapping')
 export class MappingController {
@@ -46,6 +59,23 @@ export class MappingController {
   @ApiOperation({ summary: 'Unmapped listing variants with affected order-line counts.' })
   queue(@Query() query: MappingQueueQueryDto) {
     return this.mapping.queue(query.storeId);
+  }
+
+  @Get('mapped')
+  @RequirePermissions('mapping:read')
+  @ApiOperation({ summary: 'Currently mapped listing variants with their item targets.' })
+  mapped(@Query() query: MappingQueueQueryDto) {
+    return this.mapping.mapped(query.storeId);
+  }
+
+  @Post('auto-create')
+  @RequirePermissions('mapping:manage')
+  @ApiOperation({
+    summary:
+      'Generate internal items+variants from unmapped listings and map them; dryRun previews.',
+  })
+  autoCreate(@Body() dto: MappingAutoCreateDto, @CurrentUser() user: AuthUser) {
+    return this.mapping.autoCreate(dto.storeId, user.id, dto.dryRun === true);
   }
 
   @Post('resolve')

@@ -41,7 +41,7 @@ function LoginForm() {
           type="email"
           autoComplete="username"
           required
-          className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
         />
       </div>
       <div>
@@ -58,7 +58,7 @@ function LoginForm() {
           autoComplete="current-password"
           required
           minLength={8}
-          className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
         />
       </div>
       {errorText ? (

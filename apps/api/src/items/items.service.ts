@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -67,7 +69,7 @@ export class ItemsService {
         item: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 50,
     });
   }
 
@@ -75,6 +77,7 @@ export class ItemsService {
     const item = await this.prisma.item.create({
       data: {
         name: dto.name,
+        nameEn: dto.nameEn ?? '',
         description: dto.description,
         category: dto.category,
         tags: dto.tags ?? [],
@@ -83,6 +86,9 @@ export class ItemsService {
       },
       include: itemInclude,
     });
+    // Every item carries at least one variant (Shopify convention): a
+    // default variant keeps variant-less products mappable (§8.2).
+    await this.createVariantRow(item.id, { name: 'Default' });
     await this.createContentVersion(item.id, userId);
     await this.audit.record({
       actorId: userId,
@@ -92,6 +98,93 @@ export class ItemsService {
       after: { name: item.name },
     });
     return item;
+  }
+
+  /** Creates one ItemVariant row, retrying generated code collisions. */
+  private async createVariantRow(
+    itemId: string,
+    data: { name: string; nameEn?: string; optionValues?: Record<string, unknown> },
+  ): Promise<{ id: string; itemCode: string }> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.itemVariant.create({
+          data: {
+            itemId,
+            itemCode: generateItemCode(),
+            name: data.name,
+            nameEn: data.nameEn ?? '',
+            optionValues: (data.optionValues ?? undefined) as Prisma.InputJsonValue,
+          },
+          select: { id: true, itemCode: true },
+        });
+      } catch (error) {
+        const isUniqueViolation =
+          (error as Prisma.PrismaClientKnownRequestError).code === 'P2002';
+        if (!isUniqueViolation) throw error;
+      }
+    }
+    throw new Error('Could not generate a unique item code.');
+  }
+
+  /**
+   * Batch variant generation from option axes (2026-10-15 UX ruling): the
+   * admin types each axis once ("Color" = "Ice, Dawn, …") and the system
+   * creates the cartesian product, naming variants after their values
+   * ("Ice", "Ice / M", …). Caps at 200 combinations.
+   */
+  async createVariantsBatch(
+    itemId: string,
+    dto: { axes: Array<{ name: string; values: string[] }> },
+    userId: string,
+  ): Promise<{ created: number }> {
+    await this.get(itemId);
+    const axes = dto.axes
+      .map((axis) => ({
+        name: axis.name.trim(),
+        values: axis.values.map((value) => value.trim()).filter(Boolean),
+      }))
+      .filter((axis) => axis.name.length > 0 && axis.values.length > 0);
+    if (axes.length === 0) {
+      throw new BadRequestException('At least one axis with values is required.');
+    }
+    const combinations: Array<{ name: string; optionValues: Record<string, string> }> = [{}].map(
+      () => ({ name: '', optionValues: {} }),
+    );
+    combinations.length = 0;
+    let current: Array<{ name: string; optionValues: Record<string, string> }> = [
+      { name: '', optionValues: {} },
+    ];
+    for (const axis of axes) {
+      const next: typeof current = [];
+      for (const partial of current) {
+        for (const value of axis.values) {
+          next.push({
+            name: partial.name ? `${partial.name} / ${value}` : value,
+            optionValues: { ...partial.optionValues, [axis.name]: value },
+          });
+        }
+      }
+      current = next;
+    }
+    if (current.length > 200) {
+      throw new BadRequestException(
+        `Batch generates ${current.length} variants; the limit is 200.`,
+      );
+    }
+    for (const combination of current) {
+      await this.createVariantRow(itemId, {
+        name: combination.name,
+        optionValues: combination.optionValues,
+      });
+    }
+    await this.audit.record({
+      actorId: userId,
+      action: 'item.variants.batch_created',
+      objectType: 'Item',
+      objectId: itemId,
+      after: { axes: axes.map((axis) => `${axis.name}(${axis.values.length})`), created: current.length },
+    });
+    return { created: current.length };
   }
 
   async list(query: ListItemsQueryDto) {
@@ -148,6 +241,7 @@ export class ItemsService {
       where: { id },
       data: {
         name: dto.name,
+        nameEn: dto.nameEn,
         description: dto.description,
         category: dto.category,
         tags: dto.tags,
@@ -232,6 +326,7 @@ export class ItemsService {
             itemId,
             itemCode: generateItemCode(),
             name: dto.name,
+            nameEn: dto.nameEn ?? '',
             optionValues: (dto.optionValues ?? undefined) as Prisma.InputJsonValue,
             images: (dto.images ?? undefined) as Prisma.InputJsonValue,
           },
@@ -271,6 +366,7 @@ export class ItemsService {
       where: { id: variantId },
       data: {
         name: dto.name,
+        nameEn: dto.nameEn,
         optionValues: (dto.optionValues ?? undefined) as Prisma.InputJsonValue | undefined,
         images: (dto.images ?? undefined) as Prisma.InputJsonValue | undefined,
       },
@@ -284,6 +380,40 @@ export class ItemsService {
       objectId: variantId,
       before: { name: variant.name, optionValues: variant.optionValues },
       after: dto,
+    });
+    return this.get(itemId);
+  }
+
+  /**
+   * Permanently deletes a variant when nothing references it (order lines
+   * or a mapping); referenced variants can only be archived (2026-10-16
+   * ruling — permanent item codes must not orphan history).
+   */
+  async deleteVariant(
+    itemId: string,
+    variantId: string,
+    userId: string,
+  ): Promise<ItemWithRelations> {
+    const before = await this.get(itemId);
+    const variant = before.variants.find((candidate) => candidate.id === variantId);
+    if (!variant) throw new NotFoundException('Item variant not found.');
+    const [lineRefs, mappingRefs] = await Promise.all([
+      this.prisma.orderLine.count({ where: { itemVariantId: variantId } }),
+      this.prisma.listingVariant.count({ where: { itemVariantId: variantId } }),
+    ]);
+    if (lineRefs > 0 || mappingRefs > 0) {
+      throw new ConflictException(
+        `This variant is referenced by ${lineRefs} order line(s) / ${mappingRefs} mapping(s) and cannot be deleted; archive it instead.`,
+      );
+    }
+    await this.prisma.itemVariant.delete({ where: { id: variantId } });
+    await this.createContentVersion(itemId, userId);
+    await this.audit.record({
+      actorId: userId,
+      action: 'item_variant.deleted',
+      objectType: 'ItemVariant',
+      objectId: variantId,
+      before: { itemCode: variant.itemCode, name: variant.name },
     });
     return this.get(itemId);
   }
@@ -310,6 +440,35 @@ export class ItemsService {
         objectType: 'ItemVariant',
         objectId: variantId,
         after: { archivedAt: 'set' },
+      });
+    }
+    return this.get(itemId);
+  }
+
+  /** Restores an archived variant of an item. */
+  async restoreVariant(
+    itemId: string,
+    variantId: string,
+    userId: string,
+  ): Promise<ItemWithRelations> {
+    await this.get(itemId);
+    const variant = await this.prisma.itemVariant.findUnique({ where: { id: variantId } });
+    if (!variant || variant.itemId !== itemId) {
+      throw new NotFoundException('Item variant not found.');
+    }
+    if (variant.archivedAt) {
+      await this.prisma.itemVariant.update({
+        where: { id: variantId },
+        data: { archivedAt: null },
+      });
+      await this.createContentVersion(itemId, userId);
+      await this.audit.record({
+        actorId: userId,
+        action: 'item_variant.restored',
+        objectType: 'ItemVariant',
+        objectId: variantId,
+        before: { archivedAt: 'set' },
+        after: { archivedAt: null },
       });
     }
     return this.get(itemId);

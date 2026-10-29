@@ -21,7 +21,8 @@ import {
   type SyncPolicyMode,
 } from './outbound-policy';
 import { ShippingSettingsService } from './shipping-settings.service';
-import type { ShipmentEntryDto } from './dto/shipping.dto';
+import { displayTrackingUrl, readTrackingJump } from './tracking-jump';
+import type { PackShipmentDto, ShipmentEntryDto, TailTrackingDto } from './dto/shipping.dto';
 
 function toRuleSet(carrier: {
   id: string;
@@ -122,7 +123,20 @@ export class ShipmentService {
     const carrier = await this.loadEnabledCarrier(carrierId);
     const outcome = previewForCarrier(trackingNumber, toRuleSet(carrier));
     const plan = await this.outboundPlan(order);
-    return { carrier: this.toCandidateFromOutcome(carrier, outcome), plan };
+    // Effective link preview under the store×carrier model so the entry
+    // dialog shows what buyers will actually get, not the M4 fallback.
+    const { ownSiteTrackingUrlTemplate } = await this.settings.resolved();
+    const jump = readTrackingJump(order.store?.settings ?? null);
+    const trackingLink = displayTrackingUrl(jump, ownSiteTrackingUrlTemplate, {
+      attakyTrackingNumber: outcome.attakyTrackingNumber,
+      originalTrackingNumber: outcome.normalizedNumber,
+      attakyTrackingUrl: outcome.attakyTrackingUrl,
+      carrierTrackingUrl: outcome.carrierTrackingUrl,
+    });
+    return {
+      carrier: { ...this.toCandidateFromOutcome(carrier, outcome), trackingLink },
+      plan,
+    };
   }
 
   async create(orderId: string, dto: ShipmentEntryDto, userId: string) {
@@ -223,6 +237,165 @@ export class ShipmentService {
     }
 
     return shipment;
+  }
+
+  /**
+   * M7b packing step: records weight/dimensions and creates the shipment
+   * before a tracking number exists. The pipeline stage lives on the order.
+   */
+  async createPackedShipment(
+    orderId: string,
+    dto: PackShipmentDto,
+    userId: string,
+  ): Promise<{ shipmentId: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number }> {
+    await this.loadEnterableOrder(orderId);
+    const existing = await this.prisma.shipment.findFirst({
+      where: { orderId, voidedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException('This order already has an active shipment.');
+    }
+
+    const weightGrams = Math.round(
+      dto.weightUnit === 'kg' ? dto.weightValue * 1000 : dto.weightValue,
+    );
+    const toCm = (value: number) =>
+      Math.round(dto.dimensionUnit === 'mm' ? value / 10 : dto.dimensionUnit === 'in' ? value * 2.54 : value);
+    const lengthCm = toCm(dto.lengthValue);
+    const widthCm = toCm(dto.widthValue);
+    const heightCm = toCm(dto.heightValue);
+
+    const shipment = await this.prisma.shipment.create({
+      data: {
+        orderId,
+        weightGrams,
+        lengthCm,
+        widthCm,
+        heightCm,
+        packedBy: userId,
+        packedAt: new Date(),
+        enteredBy: userId,
+        enteredAt: new Date(),
+        localStatus: 'packed',
+        remoteSyncStatus: 'not_applicable',
+      },
+      select: { id: true },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: 'shipment.packed',
+      objectType: 'shipment',
+      objectId: shipment.id,
+      after: { orderId, weightGrams, lengthCm, widthCm, heightCm },
+    });
+    return { shipmentId: shipment.id, weightGrams, lengthCm, widthCm, heightCm };
+  }
+
+  /**
+   * M7b ordering step: attaches carrier + tracking to the packed shipment.
+   * Outbound write-back is intentionally deferred to inspection.
+   */
+  async setTrackingForPackedShipment(
+    orderId: string,
+    dto: ShipmentEntryDto,
+    userId: string,
+  ): Promise<{ shipmentId: string; carrierKey: string; originalTrackingNumber: string; attakyTrackingNumber: string | null }> {
+    await this.loadEnterableOrder(orderId);
+    const shipment = await this.prisma.shipment.findFirst({
+      where: { orderId, voidedAt: null },
+    });
+    if (!shipment) {
+      throw new ConflictException('Pack the order before entering a tracking number.');
+    }
+    if (shipment.carrierId || shipment.originalTrackingNumber) {
+      throw new ConflictException('Tracking has already been entered for this shipment.');
+    }
+
+    const carrier = await this.loadEnabledCarrier(dto.carrierId);
+    const ruleSet = toRuleSet(carrier);
+    const outcome = previewForCarrier(dto.trackingNumber, ruleSet);
+    const now = new Date();
+
+    await this.prisma.shipment.update({
+      where: { id: shipment.id },
+      data: {
+        carrierId: carrier.id,
+        originalTrackingNumber: outcome.normalizedNumber,
+        attakyTrackingNumber: outcome.attakyTrackingNumber,
+        carrierTrackingUrl: outcome.carrierTrackingUrl,
+        attakyTrackingUrl: outcome.attakyTrackingUrl,
+        publicTrackingMode: outcome.attakyTrackingNumber ? 'attaky' : 'carrier',
+        enteredBy: userId,
+        enteredAt: now,
+        trackingEnteredBy: userId,
+        trackingEnteredAt: now,
+        localStatus: 'prepared',
+        remoteSyncStatus: 'not_applicable',
+        ruleVersion: ruleSet.attakyTransform?.version ?? null,
+      },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: 'shipment.tracking_entered',
+      objectType: 'shipment',
+      objectId: shipment.id,
+      after: {
+        orderId,
+        carrierKey: carrier.key,
+        originalTrackingNumber: outcome.normalizedNumber,
+        attakyTrackingNumber: outcome.attakyTrackingNumber,
+      },
+    });
+    return {
+      shipmentId: shipment.id,
+      carrierKey: carrier.key,
+      originalTrackingNumber: outcome.normalizedNumber,
+      attakyTrackingNumber: outcome.attakyTrackingNumber,
+    };
+  }
+
+  /** M7b inspection: marks the physical shipment dispatched (push happens after). */
+  async markInspected(shipmentId: string, userId: string): Promise<void> {
+    await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: {
+        inspectedBy: userId,
+        inspectedAt: new Date(),
+        localStatus: 'dispatched',
+        dispatchedAt: new Date(),
+      },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: 'shipment.inspected',
+      objectType: 'shipment',
+      objectId: shipmentId,
+    });
+  }
+
+  /** M7b tail tracking (cross-border carriers), can be added after shipping. */
+  async setTailTracking(
+    shipmentId: string,
+    dto: TailTrackingDto,
+    userId: string,
+  ): Promise<void> {
+    await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: {
+        tailTrackingNumber: dto.tailTrackingNumber.trim(),
+        tailCarrier: dto.tailCarrier?.trim() || null,
+        tailTrackingUrl: dto.tailTrackingUrl?.trim() || null,
+        tailEnteredBy: userId,
+        tailEnteredAt: new Date(),
+      },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: 'shipment.tail_tracking_saved',
+      objectType: 'shipment',
+      objectId: shipmentId,
+      after: { tailTrackingNumber: dto.tailTrackingNumber.trim() },
+    });
   }
 
   /** §12.12 correction: new values + reason, then the REVISION policy. */
@@ -405,10 +578,31 @@ export class ShipmentService {
   }
 
   async list(orderId: string) {
-    return this.prisma.shipment.findMany({
+    const shipments = await this.prisma.shipment.findMany({
       where: { orderId },
       orderBy: { enteredAt: 'asc' },
-      include: { carrier: { select: { key: true, name: true } } },
+      include: {
+        carrier: { select: { key: true, name: true } },
+        order: { select: { store: { select: { settings: true } } } },
+      },
+    });
+    if (shipments.length === 0) return [];
+    // Effective tracking link per the store×carrier model (2026-10-15):
+    // the stored attakyTrackingUrl is the M4 entry-time fallback; the link
+    // buyers actually get follows the store's jump config.
+    const { ownSiteTrackingUrlTemplate } = await this.settings.resolved();
+    return shipments.map((shipment) => {
+      const { order, ...row } = shipment;
+      const jump = readTrackingJump(order.store?.settings ?? null);
+      return {
+        ...row,
+        trackingLink: displayTrackingUrl(jump, ownSiteTrackingUrlTemplate, {
+          attakyTrackingNumber: shipment.attakyTrackingNumber,
+          originalTrackingNumber: shipment.originalTrackingNumber,
+          attakyTrackingUrl: shipment.attakyTrackingUrl,
+          carrierTrackingUrl: shipment.carrierTrackingUrl,
+        }),
+      };
     });
   }
 
@@ -507,6 +701,7 @@ export class ShipmentService {
             displayName: true,
             shippingPolicyOverride: true,
             capabilities: true,
+            settings: true,
           },
         },
       },
@@ -523,10 +718,10 @@ export class ShipmentService {
       fulfillmentStatus?: string | null;
       cancelledAt?: string | null;
     };
-    if (statusRaw.cancelledAt) {
+    if (order.cancelledAt || statusRaw.cancelledAt) {
       throw new ConflictException({
         code: 'ORDER_CANCELLED',
-        message: 'This order was cancelled on the platform; shipments cannot be recorded.',
+        message: 'This order is cancelled; shipments cannot be recorded.',
       });
     }
     if (String(statusRaw.fulfillmentStatus ?? '').toUpperCase() === 'FULFILLED') {

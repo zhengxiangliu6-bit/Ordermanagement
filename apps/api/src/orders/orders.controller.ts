@@ -15,9 +15,12 @@ import { RequirePermissions } from '../rbac/require-permissions.decorator';
 import { NotesService } from '../notes/notes.service';
 import { OrdersService } from './orders.service';
 import {
+  CancelOrderDto,
   CreateManualOrderDto,
   CreateOrderLinkDto,
   ListOrdersQueryDto,
+  ReviewCustomerDto,
+  ReviewItemsDto,
   ReviseOrderDto,
 } from './dto/order.dto';
 import { CreateNoteDto } from '../items/items.controller';
@@ -30,7 +33,58 @@ export class OrdersController {
     private readonly notes: NotesService,
   ) {}
 
-  @Post()
+    @Patch(':id/assignment')
+  @RequirePermissions('orders:revise')
+  @ApiOperation({ summary: 'Update shipping-method/category assignment (M7).' })
+  updateAssignment(
+    @Param('id') id: string,
+    @Body() dto: { shippingMethodId?: string | null; categoryId?: string | null },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.orders.updateAssignment(id, dto, user.id);
+  }
+
+  @Post(':id/copy')
+  @RequirePermissions('orders:create-manual')
+  @ApiOperation({ summary: 'Duplicate an order as an editable manual order (M7 re-ship flow).' })
+  copy(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.orders.copyOrder(id, user.id);
+  }
+
+  @Patch(':id/review-items')
+  @RequirePermissions('orders:review')
+  @ApiOperation({ summary: 'Edit the ordered product lines during unfulfilled review.' })
+  reviewItems(
+    @Param('id') id: string,
+    @Body() dto: ReviewItemsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.orders.reviewItems(id, dto, user.id);
+  }
+
+  @Patch(':id/review-customer')
+  @RequirePermissions('orders:review')
+  @ApiOperation({ summary: 'Edit the customer snapshot during unfulfilled review.' })
+  reviewCustomer(
+    @Param('id') id: string,
+    @Body() dto: ReviewCustomerDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.orders.reviewCustomer(id, dto, user.id);
+  }
+
+  @Post(':id/cancel')
+  @RequirePermissions('orders:cancel')
+  @ApiOperation({ summary: 'Manually cancel an order (local cancellation; audit recorded).' })
+  cancel(
+    @Param('id') id: string,
+    @Body() dto: CancelOrderDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.orders.cancelOrder(id, user.id, dto.reason);
+  }
+
+@Post()
   @RequirePermissions('orders:create-manual')
   @ApiOperation({ summary: 'Create a manual order (title-only lines allowed).' })
   createManual(

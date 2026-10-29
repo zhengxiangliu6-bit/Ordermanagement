@@ -104,6 +104,17 @@ export class CarrierInputDto {
   @MaxLength(500)
   trackingUrlTemplate?: string | null;
 
+  @ApiPropertyOptional({ description: 'Cross-border carriers expose tail tracking.' })
+  @IsOptional()
+  @IsBoolean()
+  crossBorder?: boolean;
+
+  @ApiPropertyOptional({ description: 'Carrier order/print site opened from the ordering queue.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  orderUrlTemplate?: string | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()

@@ -60,7 +60,39 @@ suite('items e2e', () => {
       .get(`/api/v1/items/${itemId}`)
       .set('Cookie', cookie)
       .expect(200);
-    expect(detail.body.variants).toHaveLength(0);
+    // Every item carries a default variant (2026-10-15 ruling): variant-less
+    // items cannot be mapping targets, mirroring Shopify's model.
+    expect(detail.body.variants).toHaveLength(1);
+    expect(detail.body.variants[0].name).toBe('Default');
+  });
+
+  it('stores bilingual names and image URL lists on items and variants', async () => {
+    const patched = await agent
+      .patch(`/api/v1/items/${itemId}`)
+      .set('Cookie', cookie)
+      .send({
+        nameEn: 'Core ESP32 Board EN',
+        images: ['https://cdn.example.com/a.png', 'https://cdn.example.com/b.png'],
+      })
+      .expect(200);
+    expect(patched.body.nameEn).toBe('Core ESP32 Board EN');
+    expect(patched.body.images).toEqual([
+      'https://cdn.example.com/a.png',
+      'https://cdn.example.com/b.png',
+    ]);
+
+    const variant = await agent
+      .post(`/api/v1/items/${itemId}/variants`)
+      .set('Cookie', cookie)
+      .send({
+        name: '带天线',
+        nameEn: 'With Antenna',
+        images: ['https://cdn.example.com/v1.png'],
+      })
+      .expect(201);
+    const created = variant.body.variants.at(-1);
+    expect(created.nameEn).toBe('With Antenna');
+    expect(created.images).toEqual(['https://cdn.example.com/v1.png']);
   });
 
   it('lists the Item with pagination metadata', async () => {

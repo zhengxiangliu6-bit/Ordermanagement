@@ -178,6 +178,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/items/{id}/variants/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate variants from option axes (cartesian product, auto names). */
+        post: operations["ItemsController_createVariantsBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/items/{id}/variants/{variantId}": {
         parameters: {
             query?: never;
@@ -188,7 +205,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Permanently delete an unreferenced variant; referenced ones can only be archived. */
+        delete: operations["ItemsController_deleteVariant"];
         options?: never;
         head?: never;
         /** Update a variant; creates a new content version. */
@@ -206,6 +224,23 @@ export interface paths {
         put?: never;
         /** Archive a variant. */
         post: operations["ItemsController_archiveVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/items/{id}/variants/{variantId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived variant. */
+        post: operations["ItemsController_restoreVariant"];
         delete?: never;
         options?: never;
         head?: never;
@@ -300,6 +335,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mapping/mapped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Currently mapped listing variants with their item targets. */
+        get: operations["MappingController_mapped"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mapping/auto-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate internal items+variants from unmapped listings and map them; dryRun previews. */
+        post: operations["MappingController_autoCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mapping/resolve": {
         parameters: {
             query?: never;
@@ -329,6 +398,91 @@ export interface paths {
         post?: never;
         /** Remove the mapping of a listing variant. */
         delete: operations["MappingController_unbind"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update shipping-method/category assignment (M7). */
+        patch: operations["OrdersController_updateAssignment"];
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate an order as an editable manual order (M7 re-ship flow). */
+        post: operations["OrdersController_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/review-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit the ordered product lines during unfulfilled review. */
+        patch: operations["OrdersController_reviewItems"];
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/review-customer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit the customer snapshot during unfulfilled review. */
+        patch: operations["OrdersController_reviewCustomer"];
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manually cancel an order (local cancellation; audit recorded). */
+        post: operations["OrdersController_cancel"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -474,6 +628,193 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List catalog items with variants and stock. */
+        get: operations["InventoryController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paginated movement history for a catalog item. */
+        get: operations["InventoryController_movements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock detail for one product variant. */
+        get: operations["InventoryController_variantDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paginated movement history for one product variant. */
+        get: operations["InventoryController_variantMovements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a signed stock adjustment (inbound / write-off). */
+        post: operations["InventoryController_adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a product variant in one warehouse (keeps the other active). */
+        post: operations["InventoryController_archiveVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a warehouse-archived product variant. */
+        post: operations["InventoryController_restoreVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/warehouse-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one warehouse stock row (direct delete of archived stock). */
+        delete: operations["InventoryController_deleteWarehouseStock"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/stocktake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stocktake: set the counted quantity for a warehouse. */
+        post: operations["InventoryController_stocktake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/variants/{variantId}/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set the low-stock threshold for a warehouse. */
+        patch: operations["InventoryController_setThreshold"];
+        trace?: never;
+    };
+    "/api/v1/inventory/stocktake-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch stocktake with per-entry and batch notes. */
+        post: operations["InventoryController_stocktakeBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/review-queue": {
         parameters: {
             query?: never;
@@ -506,6 +847,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-queue/{id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save a reviewer note on a pending record (M7). */
+        patch: operations["ReviewController_saveNote"];
         trace?: never;
     };
     "/api/v1/review-queue/{id}/approve": {
@@ -818,6 +1176,333 @@ export interface paths {
         patch: operations["ShippingSettingsController_update"];
         trace?: never;
     };
+    "/api/v1/shipping-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List shipping methods (enabled first, then sortOrder). */
+        get: operations["ShippingMethodsController_list"];
+        put?: never;
+        /** Create a shipping method. */
+        post: operations["ShippingMethodsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-methods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a shipping method; orders referencing it keep history (SET NULL). */
+        delete: operations["ShippingMethodsController_remove"];
+        options?: never;
+        head?: never;
+        /** Update a shipping method. */
+        patch: operations["ShippingMethodsController_update"];
+        trace?: never;
+    };
+    "/api/v1/shipping-regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List shipping regions (enabled first, then sortOrder). */
+        get: operations["ShippingRegionsController_list"];
+        put?: never;
+        /** Create a shipping region. */
+        post: operations["ShippingRegionsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-regions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a shipping region; orders referencing it keep history (SET NULL). */
+        delete: operations["ShippingRegionsController_remove"];
+        options?: never;
+        head?: never;
+        /** Update a shipping region. */
+        patch: operations["ShippingRegionsController_update"];
+        trace?: never;
+    };
+    "/api/v1/shipping-work/packing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orders waiting to be packed (weight/dimensions). */
+        get: operations["ShippingWorkController_packing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/ordering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Packed orders waiting for carrier + tracking. */
+        get: operations["ShippingWorkController_ordering"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/inspection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orders waiting for the spot-check confirmation. */
+        get: operations["ShippingWorkController_inspection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/tail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Completed cross-border shipments missing tail tracking. */
+        get: operations["ShippingWorkController_tail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm packing (weight/dimensions) and move to ordering. */
+        post: operations["ShippingWorkController_pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/packing-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Second-confirmation data: products, gifts and stock deduction rows. */
+        get: operations["ShippingWorkController_packingPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/return-to-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Return a packed order back to the unfulfilled review. */
+        post: operations["ShippingWorkController_returnToReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/add-ons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a gift/extra item while packing. */
+        post: operations["ShippingWorkController_addAddOn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/add-ons/{addOnId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a gift/extra item before packing is confirmed. */
+        delete: operations["ShippingWorkController_removeAddOn"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach carrier + tracking and move to inspection. */
+        post: operations["ShippingWorkController_tracking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm spot-check: complete the order and push fulfillment to the store. */
+        post: operations["ShippingWorkController_inspect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/tail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save tail (last-mile) tracking for a cross-border shipment. */
+        post: operations["ShippingWorkController_tailTracking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/problem-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List open problem items with order context. */
+        get: operations["ProblemItemsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/problem-items/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve a problem: cancel, restart the original, or copy a new order. */
+        post: operations["ProblemItemsController_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping-work/{orderId}/problem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark an order as a problem item (any stage). */
+        post: operations["ProblemReportController_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores": {
         parameters: {
             query?: never;
@@ -940,6 +1625,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One listing with its variant details (verification view). */
+        get: operations["ListingsController_getOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -952,23 +1654,6 @@ export interface paths {
         put?: never;
         /** Create an account with a one-time temporary password (shown once, forces change). */
         post: operations["UsersController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List assignable roles. */
-        get: operations["UsersController_listRoles"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1026,6 +1711,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Permanently delete an account (sessions and role assignments cascade; notes keep history). */
+        delete: operations["UsersController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List roles with per-role user counts. */
+        get: operations["RolesController_list"];
+        put?: never;
+        /** Create a custom role. */
+        post: operations["RolesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a role; roles still assigned to users are refused. */
+        delete: operations["RolesController_remove"];
+        options?: never;
+        head?: never;
+        /** Rename a role and/or replace its permissions. */
+        patch: operations["RolesController_update"];
+        trace?: never;
+    };
     "/api/v1/users/me/change-password": {
         parameters: {
             query?: never;
@@ -1058,6 +1796,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List categories (enabled first, then sortOrder). */
+        get: operations["CategoriesController_list"];
+        put?: never;
+        /** Create a category. */
+        post: operations["CategoriesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a category; orders referencing it keep their historical display via SET NULL. */
+        delete: operations["CategoriesController_remove"];
+        options?: never;
+        head?: never;
+        /** Update a category. */
+        patch: operations["CategoriesController_update"];
         trace?: never;
     };
     "/api/v1/auth/login": {
@@ -1117,46 +1891,94 @@ export interface components {
     schemas: {
         CreateItemDto: {
             name: string;
+            /** @description English name (Canada warehouse display). */
+            nameEn?: string;
             description?: string;
             category?: string;
             tags?: string[];
-            images?: {
-                [key: string]: unknown;
-            };
+            /** @description Image URLs. */
+            images?: string[];
         };
         UpdateItemDto: {
             name?: string;
+            /** @description English name (Canada warehouse display). */
+            nameEn?: string;
             description?: string;
             category?: string;
             tags?: string[];
-            images?: {
-                [key: string]: unknown;
-            };
+            /** @description Image URLs. */
+            images?: string[];
         };
         CreateItemVariantDto: {
             name: string;
+            /** @description English name (Canada warehouse display). */
+            nameEn?: string;
             optionValues?: {
                 [key: string]: unknown;
             };
-            images?: {
-                [key: string]: unknown;
-            };
+            /** @description Image URLs. */
+            images?: string[];
+        };
+        VariantBatchAxisDto: {
+            /** @example Color */
+            name: string;
+            /**
+             * @example [
+             *       "Ice",
+             *       "Dawn",
+             *       "Powder"
+             *     ]
+             */
+            values: string[];
+        };
+        CreateItemVariantsBatchDto: {
+            axes: components["schemas"]["VariantBatchAxisDto"][];
         };
         UpdateItemVariantDto: {
             name?: string;
+            /** @description English name (Canada warehouse display). */
+            nameEn?: string;
             optionValues?: {
                 [key: string]: unknown;
             };
-            images?: {
-                [key: string]: unknown;
-            };
+            /** @description Image URLs. */
+            images?: string[];
         };
         CreateNoteDto: {
             body: string;
         };
+        MappingAutoCreateDto: {
+            storeId?: string;
+            /** @description Preview the plan without writing. */
+            dryRun?: boolean;
+        };
         MappingResolveDto: {
             listingVariantId: string;
             itemVariantId: string;
+        };
+        ReviewItemLineDto: {
+            /** @description Existing order line id; omit to add a new line. */
+            id?: string;
+            title: string;
+            /** @default 1 */
+            quantity: number;
+        };
+        ReviewItemsDto: {
+            lines: components["schemas"]["ReviewItemLineDto"][];
+        };
+        ReviewCustomerDto: {
+            name?: string;
+            phone?: string;
+            email?: string;
+            addressLine1?: string;
+            addressLine2?: string;
+            city?: string;
+            postalCode?: string;
+            country?: string;
+        };
+        CancelOrderDto: {
+            /** @description Optional cancellation reason (audited). */
+            reason?: string;
         };
         OrderLineInputDto: {
             title: string;
@@ -1192,6 +2014,28 @@ export interface components {
         };
         CreateOrderLinkDto: {
             relatedOrderId: string;
+        };
+        AdjustStockDto: {
+            /** @enum {string} */
+            warehouse: "china" | "canada";
+            /** @description Signed delta; negative for write-offs. */
+            delta: number;
+            note?: string;
+        };
+        WarehouseArchiveDto: {
+            /** @enum {string} */
+            warehouse: "china" | "canada";
+        };
+        StocktakeDto: {
+            /** @enum {string} */
+            warehouse: "china" | "canada";
+            countedQuantity: number;
+            note?: string;
+        };
+        ThresholdDto: {
+            /** @enum {string} */
+            warehouse: "china" | "canada";
+            lowThreshold: number;
         };
         ApproveBatchDto: {
             ids: string[];
@@ -1244,6 +2088,10 @@ export interface components {
             enabled?: boolean;
             recognition: components["schemas"]["CarrierRecognitionDto"];
             trackingUrlTemplate?: Record<string, never>;
+            /** @description Cross-border carriers expose tail tracking. */
+            crossBorder?: boolean;
+            /** @description Carrier order/print site opened from the ordering queue. */
+            orderUrlTemplate?: Record<string, never>;
             attakyTransform?: Record<string, never>;
         };
         CarrierPreviewDto: {
@@ -1263,6 +2111,8 @@ export interface components {
             carrierId: string;
         };
         ShipmentEntryDto: {
+            /** @description Ordering-stage note. */
+            note?: string;
             /** @example SF1234567890123 */
             trackingNumber: string;
             /** @description Chosen carrier: auto match, ambiguity resolution, or manual selection. */
@@ -1319,6 +2169,91 @@ export interface components {
              */
             ownSiteTrackingUrlTemplate?: Record<string, never>;
         };
+        ShippingMethodDto: {
+            name: string;
+            enabled?: boolean;
+            sortOrder?: number;
+        };
+        ShippingRegionDto: {
+            /**
+             * @description Warehouse stock is deducted from.
+             * @enum {string}
+             */
+            warehouse?: "china" | "canada";
+            name: string;
+            enabled?: boolean;
+            sortOrder?: number;
+        };
+        PackShipmentDto: {
+            /**
+             * @description Weight value in the chosen unit (required, > 0).
+             * @example 350
+             */
+            weightValue: number;
+            /** @enum {string} */
+            weightUnit: "g" | "kg";
+            /** @description Packing-stage note. */
+            note?: string;
+            /**
+             * @description Required, > 0.
+             * @example 30
+             */
+            lengthValue: number;
+            /**
+             * @description Required, > 0.
+             * @example 20
+             */
+            widthValue: number;
+            /**
+             * @description Required, > 0.
+             * @example 10
+             */
+            heightValue: number;
+            /** @enum {string} */
+            dimensionUnit: "cm" | "mm" | "in";
+        };
+        CreateAddOnDto: {
+            /** @description Item variant id (preferred; drives future stock). */
+            itemVariantId?: string;
+            /** @description Display title (auto-filled from the variant by the UI). */
+            title: string;
+            /** @default 1 */
+            quantity: number;
+            note?: string;
+        };
+        InspectShipmentDto: {
+            /** @description Inspection-stage note. */
+            note?: string;
+        };
+        TailTrackingDto: {
+            tailTrackingNumber: string;
+            tailCarrier?: string;
+            tailTrackingUrl?: string;
+            /** @description Tail-stage note. */
+            note?: string;
+        };
+        ResolveProblemDto: {
+            /** @enum {string} */
+            resolution: "cancel" | "restart" | "copy";
+            /**
+             * @description Stage to return the order to when resolution is restart.
+             * @enum {string}
+             */
+            returnStage?: "packing" | "ordering" | "inspection";
+            /** @description Resolution note. */
+            note?: string;
+        };
+        CreateProblemDto: {
+            /** @enum {string} */
+            type: "pending_pickup" | "returning" | "address" | "damaged" | "missing" | "other";
+            /**
+             * @description Where the problem was reported from.
+             * @enum {string}
+             */
+            source?: "work" | "detail";
+            /** @description What the problem is; shown to the reviewer. */
+            content: string;
+        };
         CreateStoreDto: {
             /** @enum {string} */
             platform: "shopify" | "etsy";
@@ -1353,10 +2288,28 @@ export interface components {
         SetRolesDto: {
             roleKeys: string[];
         };
+        CreateRoleDto: {
+            name: string;
+            /** @description Optional machine key; auto-generated when omitted. */
+            key?: string;
+            /** @description `scope:action` permission keys. */
+            permissions: string[];
+        };
+        UpdateRoleDto: {
+            name?: string;
+            permissions?: string[];
+        };
         ChangePasswordDto: {
             /** @description Current (or one-time temporary) password. */
             currentPassword: string;
             newPassword: string;
+        };
+        CategoryDto: {
+            name: string;
+            /** @description Tracking-site template with {number} placeholder (R8). */
+            trackingUrlTemplate?: Record<string, never>;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         LoginDto: {
             /** @example admin@example.com */
@@ -1671,6 +2624,49 @@ export interface operations {
             };
         };
     };
+    ItemsController_createVariantsBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemVariantsBatchDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ItemsController_deleteVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ItemsController_updateVariant: {
         parameters: {
             query?: never;
@@ -1696,6 +2692,26 @@ export interface operations {
         };
     };
     ItemsController_archiveVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ItemsController_restoreVariant: {
         parameters: {
             query?: never;
             header?: never;
@@ -1881,6 +2897,46 @@ export interface operations {
             };
         };
     };
+    MappingController_mapped: {
+        parameters: {
+            query?: {
+                storeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MappingController_autoCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingAutoCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MappingController_resolve: {
         parameters: {
             query?: never;
@@ -1921,10 +2977,129 @@ export interface operations {
             };
         };
     };
+    OrdersController_updateAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_reviewItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewItemsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_reviewCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCustomerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     OrdersController_list: {
         parameters: {
             query?: {
                 source?: "external" | "manual";
+                /** @description M7 list grouping: active workflow vs finished (completed/cancelled). */
+                stageGroup?: "active" | "finished";
+                /** @description M7 operational status filter (partial fulfillment counts as unfulfilled). */
+                status?: "unfulfilled" | "fulfilled" | "cancelled";
+                /** @description Deprecated hard-coded region filter (kept for compatibility). */
+                region?: "china" | "canada";
+                /** @description M7 shipping region filter (ShippingRegion id). */
+                shippingRegionId?: string;
+                /** @description Legacy shipping method filter. */
+                shippingMethodId?: string;
+                /** @description M7 category filter (Category id). */
+                categoryId?: string;
                 storeId?: string;
                 archived?: boolean;
                 search?: string;
@@ -2169,6 +3344,249 @@ export interface operations {
             };
         };
     };
+    InventoryController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_movements: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                type?: "outbound" | "return" | "adjust_in" | "adjust_out" | "stocktake";
+                order?: "asc" | "desc";
+                /** @description Restrict to one variant of the item. */
+                variantId?: string;
+                warehouse?: "china" | "canada";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_variantDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_variantMovements: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                type?: "outbound" | "return" | "adjust_in" | "adjust_out" | "stocktake";
+                order?: "asc" | "desc";
+                /** @description Restrict to one variant of the item. */
+                variantId?: string;
+                warehouse?: "china" | "canada";
+            };
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustStockDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_archiveVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WarehouseArchiveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_restoreVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WarehouseArchiveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_deleteWarehouseStock: {
+        parameters: {
+            query: {
+                warehouse: "china" | "canada";
+            };
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_stocktake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StocktakeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_setThreshold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThresholdDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_stocktakeBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ReviewController_list: {
         parameters: {
             query: {
@@ -2189,6 +3607,25 @@ export interface operations {
         };
     };
     ReviewController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewController_saveNote: {
         parameters: {
             query?: never;
             header?: never;
@@ -2666,6 +4103,462 @@ export interface operations {
             };
         };
     };
+    ShippingMethodsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingMethodsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingMethodDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingMethodsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingMethodsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingRegionsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingRegionsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRegionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingRegionsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingRegionsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_packing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_ordering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_inspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_tail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_pack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackShipmentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_packingPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_returnToReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_addAddOn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAddOnDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_removeAddOn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                addOnId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_tracking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentEntryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_inspect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectShipmentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ShippingWorkController_tailTracking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailTrackingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProblemItemsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProblemItemsController_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveProblemDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProblemReportController_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProblemDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StoresController_list: {
         parameters: {
             query?: {
@@ -2850,9 +4743,31 @@ export interface operations {
     };
     ListingsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filter listings by store. */
+                storeId?: string;
+            };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ListingsController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2899,23 +4814,6 @@ export interface operations {
         };
         responses: {
             201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UsersController_listRoles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2988,6 +4886,105 @@ export interface operations {
             };
         };
     };
+    UsersController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RolesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RolesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RolesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RolesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MeActionsController_changePassword: {
         parameters: {
             query?: never;
@@ -3014,6 +5011,82 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CategoriesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CategoriesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CategoriesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CategoriesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

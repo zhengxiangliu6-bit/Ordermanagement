@@ -14,6 +14,7 @@ interface CarrierCandidate {
   id: string;
   key: string;
   name: string;
+  trackingLink?: string | null;
   preview: {
     normalizedNumber: string;
     attakyTrackingNumber: string | null;
@@ -37,16 +38,16 @@ interface ShipmentRow {
   originalTrackingNumber: string | null;
   attakyTrackingNumber: string | null;
   attakyTrackingUrl: string | null;
+  trackingLink: string | null;
   publicTrackingMode: string | null;
   localStatus: string;
   remoteSyncStatus: string;
   nextSendAt: string | null;
   policyMode: string | null;
-  ruleVersion: number | null;
   enteredAt: string;
   platformResults: {
     attempts?: number;
-    ops?: Array<{ op: string; ok: boolean; errorType?: string }>;
+    ops?: Array<{ op: string; ok: boolean; errorType?: string; detail?: string }>;
   } | null;
 }
 
@@ -96,8 +97,11 @@ function formatInZone(iso: string, timeZone?: string): string {
 export function ShipmentSection({
   platformBlocked = false,
   platformFulfillments = [],
+  entryEnabled = true,
 }: {
   platformBlocked?: boolean;
+  /** The new stage workflow enters tracking in the shipping-work queues. */
+  entryEnabled?: boolean;
   platformFulfillments?: Array<{
     externalId: string;
     status: string | null;
@@ -109,7 +113,7 @@ export function ShipmentSection({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const root = useRouteLoaderData<typeof rootLoader>("root");
-  const canEnter = !!root?.user.permissions.includes("shipping:enter");
+  const canEnter = entryEnabled && !!root?.user.permissions.includes("shipping:enter");
   const canSeeSource = !!root?.user.permissions.includes("carrier-source:read");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reviseOpen, setReviseOpen] = useState(false);
@@ -159,22 +163,22 @@ export function ShipmentSection({
         <div className="rounded border border-slate-100 bg-slate-50 p-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded px-1.5 py-0.5 text-xs ${
+              className={`whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${
                 STATUS_BADGE_CLASSES[shipment.remoteSyncStatus] ??
                 "bg-slate-100 text-slate-700"
               }`}
             >
               {t(STATUS_LABEL_KEYS[shipment.remoteSyncStatus] ?? "shipments.statusScheduled")}
             </span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+            <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
               {t("shipments.localStatusDispatched")}
             </span>
             {shipment.publicTrackingMode === "attaky" ? (
-              <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">
+              <span className="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">
                 {t("shipments.modeAttaky")}
               </span>
             ) : (
-              <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">
+              <span className="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">
                 {t("shipments.modeCarrier")}
               </span>
             )}
@@ -182,17 +186,17 @@ export function ShipmentSection({
           <dl className="mt-2 grid grid-cols-[12rem_1fr] gap-x-3 gap-y-1">
             <dt className="text-slate-500">{t("shipments.attakyNumber")}</dt>
             <dd className="font-mono text-xs">{shipment.attakyTrackingNumber ?? "—"}</dd>
-            {shipment.attakyTrackingUrl ? (
+            {shipment.trackingLink ?? shipment.attakyTrackingUrl ? (
               <>
                 <dt className="text-slate-500">{t("shipments.attakyUrl")}</dt>
                 <dd>
                   <a
                     className="text-sky-700 underline"
-                    href={shipment.attakyTrackingUrl}
+                    href={shipment.trackingLink ?? shipment.attakyTrackingUrl ?? "#"}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {shipment.attakyTrackingUrl}
+                    {shipment.trackingLink ?? shipment.attakyTrackingUrl}
                   </a>
                 </dd>
               </>
@@ -233,8 +237,6 @@ export function ShipmentSection({
                 </dd>
               </>
             ) : null}
-            <dt className="text-slate-500">{t("shipments.ruleVersion")}</dt>
-            <dd>{shipment.ruleVersion ?? "—"}</dd>
             {shipment.platformResults?.attempts ? (
               <>
                 <dt className="text-slate-500">{t("shipments.attempts")}</dt>
@@ -245,9 +247,16 @@ export function ShipmentSection({
               <>
                 <dt className="text-slate-500">{t("shipments.platformOps")}</dt>
                 <dd className="font-mono text-xs">
-                  {shipment.platformResults.ops
-                    .map((op) => `${op.ok ? "✓" : "✗"} ${op.op}`)
-                    .join(" · ")}
+                  {shipment.platformResults.ops.map((op, index) => (
+                    <div key={index}>
+                      {op.ok ? "✓" : "✗"} {op.op}
+                      {!op.ok && op.detail ? (
+                        <span className="ml-1 break-all font-sans text-red-600">
+                          {op.detail}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
                 </dd>
               </>
             ) : null}
@@ -404,14 +413,14 @@ function ShipmentEntryDialog({
               if (event.key === "Enter") void recognize();
             }}
             placeholder={t("shipments.trackingPlaceholder")}
-            className="flex-1 rounded border border-slate-300 px-2.5 py-1.5 font-mono"
+            className="flex-1 rounded-lg border border-ink/20 bg-white px-2.5 py-1.5 font-mono"
             autoFocus
           />
           <button
             type="button"
             onClick={() => void recognize()}
             disabled={busy || !trackingNumber.trim()}
-            className="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50"
+            className="rounded-lg border border-ink/20 px-3 py-1.5 hover:bg-pill disabled:opacity-50"
           >
             {t("shipments.recognize")}
           </button>
@@ -456,7 +465,7 @@ function ShipmentEntryDialog({
             <select
               value={chosenCarrierId ?? ""}
               onChange={(event) => setChosenCarrierId(event.target.value || null)}
-              className="mt-1 w-full rounded border border-slate-300 px-2.5 py-1.5"
+              className="mt-1 w-full rounded-lg border border-ink/20 px-2.5 py-1.5"
             >
               <option value="">{t("shipments.chooseCarrier")}</option>
               {recognized.carriers.map((carrier) => (
@@ -476,11 +485,12 @@ function ShipmentEntryDialog({
               <dd className="font-mono text-xs">
                 {preview.data.carrier.preview?.attakyTrackingNumber ?? "—"}
               </dd>
-              {preview.data.carrier.preview?.attakyTrackingUrl ? (
+              {preview.data.carrier.trackingLink ?? preview.data.carrier.preview?.attakyTrackingUrl ? (
                 <>
                   <dt className="text-slate-500">{t("shipments.attakyUrl")}</dt>
                   <dd className="break-all text-xs">
-                    {preview.data.carrier.preview.attakyTrackingUrl}
+                    {preview.data.carrier.trackingLink ??
+                      preview.data.carrier.preview?.attakyTrackingUrl}
                   </dd>
                 </>
               ) : null}
@@ -523,7 +533,7 @@ function ShipmentEntryDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100"
+            className="rounded-lg border border-ink/20 px-3 py-1.5 hover:bg-pill"
           >
             {t("common.cancel")}
           </button>
@@ -598,7 +608,7 @@ function ShipmentTracking({ orderId, shipmentId }: { orderId: string; shipmentId
         <span className="text-xs font-medium text-slate-500">
           {t("shipments.trackingTitle")}
         </span>
-        <span className="rounded bg-white px-1.5 py-0.5 text-xs text-slate-700">
+        <span className="whitespace-nowrap rounded bg-white px-1.5 py-0.5 text-xs text-slate-700">
           {eventLabels[snapshot.currentStatus] ?? snapshot.currentStatus}
         </span>
         {snapshot.link ? (
@@ -676,7 +686,7 @@ function ShipmentReviseDialog({
           <input
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-2.5 py-1.5"
+            className="mt-1 w-full rounded-lg border border-ink/20 px-2.5 py-1.5"
             autoFocus
           />
         </label>
@@ -685,7 +695,7 @@ function ShipmentReviseDialog({
           <input
             value={trackingNumber}
             onChange={(event) => setTrackingNumber(event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-2.5 py-1.5 font-mono"
+            className="mt-1 w-full rounded-lg border border-ink/20 px-2.5 py-1.5 font-mono"
           />
         </label>
         {error ? (
@@ -697,7 +707,7 @@ function ShipmentReviseDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100"
+            className="rounded-lg border border-ink/20 px-3 py-1.5 hover:bg-pill"
           >
             {t("common.cancel")}
           </button>

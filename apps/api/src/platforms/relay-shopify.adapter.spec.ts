@@ -78,8 +78,8 @@ describe('normalizeShopifyProduct', () => {
       description: '<p>Minimal.</p>',
       sourceUpdatedAt: '2026-10-11T08:00:00Z',
       variants: [
-        { externalVariantId: 'gid://shopify/ProductVariant/9001', externalSku: 'SNO-001', optionValues: { Size: '154' } },
-        { externalVariantId: 'gid://shopify/ProductVariant/9002', externalSku: undefined, optionValues: {} },
+        { externalVariantId: 'gid://shopify/ProductVariant/9001', title: 'Default', externalSku: 'SNO-001', optionValues: { Size: '154' } },
+        { externalVariantId: 'gid://shopify/ProductVariant/9002', title: 'No SKU variant', externalSku: undefined, optionValues: {} },
       ],
     });
   });

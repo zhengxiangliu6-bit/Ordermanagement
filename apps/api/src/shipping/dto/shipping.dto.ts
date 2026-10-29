@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsInt,
+  IsNumber,
+  Min,
   IsBoolean,
   IsIn,
   IsOptional,
@@ -139,6 +143,12 @@ export class ShipmentPreviewDto {
 }
 
 export class ShipmentEntryDto {
+  @ApiPropertyOptional({ description: 'Ordering-stage note.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
   @ApiProperty({ example: 'SF1234567890123' })
   @IsString()
   @MinLength(1)
@@ -152,4 +162,159 @@ export class ShipmentEntryDto {
   @ApiPropertyOptional({ description: 'Actual dispatch time; defaults to entry time.' })
   @IsOptional()
   dispatchedAt?: string;
+}
+
+/** M7b packing step: weight and box dimensions with selectable units. */
+export const WEIGHT_UNITS = ['g', 'kg'] as const;
+export const DIMENSION_UNITS = ['cm', 'mm', 'in'] as const;
+
+export class PackShipmentDto {
+  @ApiProperty({ example: 350, description: 'Weight value in the chosen unit (required, > 0).' })
+  @IsNumber()
+  @Min(0.01)
+  weightValue!: number;
+
+  @ApiProperty({ enum: WEIGHT_UNITS })
+  @IsIn(WEIGHT_UNITS)
+  weightUnit!: (typeof WEIGHT_UNITS)[number];
+
+  @ApiPropertyOptional({ description: 'Packing-stage note.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @ApiProperty({ example: 30, description: 'Required, > 0.' })
+  @IsNumber()
+  @Min(0.01)
+  lengthValue!: number;
+
+  @ApiProperty({ example: 20, description: 'Required, > 0.' })
+  @IsNumber()
+  @Min(0.01)
+  widthValue!: number;
+
+  @ApiProperty({ example: 10, description: 'Required, > 0.' })
+  @IsNumber()
+  @Min(0.01)
+  heightValue!: number;
+
+  @ApiProperty({ enum: DIMENSION_UNITS })
+  @IsIn(DIMENSION_UNITS)
+  dimensionUnit!: (typeof DIMENSION_UNITS)[number];
+}
+
+export class InspectShipmentDto {
+  @ApiPropertyOptional({ description: 'Inspection-stage note.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+export class TailTrackingDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  tailTrackingNumber!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  tailCarrier?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  tailTrackingUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Tail-stage note.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+/** Problem-item types (M7c decision 10). */
+export const PROBLEM_TYPES = [
+  'pending_pickup',
+  'returning',
+  'address',
+  'damaged',
+  'missing',
+  'other',
+] as const;
+
+export const PROBLEM_SOURCES = ['work', 'detail'] as const;
+
+export class CreateProblemDto {
+  @ApiProperty({ enum: PROBLEM_TYPES })
+  @IsIn(PROBLEM_TYPES)
+  type!: (typeof PROBLEM_TYPES)[number];
+
+  @ApiPropertyOptional({ enum: PROBLEM_SOURCES, description: 'Where the problem was reported from.' })
+  @IsOptional()
+  @IsIn(PROBLEM_SOURCES)
+  source?: (typeof PROBLEM_SOURCES)[number];
+
+  @ApiProperty({ description: 'What the problem is; shown to the reviewer.' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  content!: string;
+}
+
+export const PROBLEM_RESOLUTIONS = ['cancel', 'restart', 'copy'] as const;
+
+export const PROBLEM_RETURN_STAGES = ['packing', 'ordering', 'inspection'] as const;
+
+export class ResolveProblemDto {
+  @ApiProperty({ enum: PROBLEM_RESOLUTIONS })
+  @IsIn(PROBLEM_RESOLUTIONS)
+  resolution!: (typeof PROBLEM_RESOLUTIONS)[number];
+
+  @ApiPropertyOptional({
+    enum: PROBLEM_RETURN_STAGES,
+    description: 'Stage to return the order to when resolution is restart.',
+  })
+  @IsOptional()
+  @IsIn(PROBLEM_RETURN_STAGES)
+  returnStage?: (typeof PROBLEM_RETURN_STAGES)[number];
+
+  @ApiPropertyOptional({ description: 'Resolution note.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+/** Packing gift / extra item (linked to an item variant for later stock). */
+export class CreateAddOnDto {
+  @ApiPropertyOptional({ description: 'Item variant id (preferred; drives future stock).' })
+  @IsOptional()
+  @IsUUID()
+  itemVariantId?: string;
+
+  @ApiProperty({ description: 'Display title (auto-filled from the variant by the UI).' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  title!: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+
 }

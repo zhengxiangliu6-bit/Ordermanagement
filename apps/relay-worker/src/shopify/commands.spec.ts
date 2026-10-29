@@ -168,7 +168,7 @@ describe("ShopifyCommands", () => {
     expect(outcome.status).toBe("succeeded");
     expect(bodies[0]?.variables).toEqual({
       fulfillment: {
-        lineItemsByFulfillmentOrderId: [
+        lineItemsByFulfillmentOrder: [
           { fulfillmentOrderId: "gid://shopify/FulfillmentOrder/1" },
         ],
         notifyCustomer: false,

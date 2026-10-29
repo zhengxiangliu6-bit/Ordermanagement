@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Centered scrollable dialog with a backdrop. Closing via the ✕ button or a
@@ -22,20 +23,20 @@ export function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/50 p-4 backdrop-blur-[2px]"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="mt-10 mb-10 w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-lg">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="text-base font-semibold">{title}</h2>
+      <div className="pop-shadow mt-10 mb-10 w-full max-w-2xl rounded-xl border border-ink/10 bg-white">
+        <div className="flex items-center justify-between border-b border-ink/10 px-5 py-3">
+          <h2 className="font-display text-base text-ink">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700"
+            className="rounded-lg px-2 py-0.5 text-lg leading-none text-slate-400 transition-colors hover:bg-pill hover:text-ink"
             aria-label="Close"
           >
             ✕
@@ -43,6 +44,7 @@ export function Modal({
         </div>
         <div className="p-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

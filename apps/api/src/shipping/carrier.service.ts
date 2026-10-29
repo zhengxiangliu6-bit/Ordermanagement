@@ -67,6 +67,8 @@ export class CarrierService {
         enabled: dto.enabled ?? true,
         recognition: dto.recognition as unknown as Prisma.InputJsonValue,
         trackingUrlTemplate: dto.trackingUrlTemplate ?? null,
+        crossBorder: dto.crossBorder ?? false,
+        orderUrlTemplate: dto.orderUrlTemplate ?? null,
         attakyTransform: (dto.attakyTransform ?? null) as unknown as Prisma.InputJsonValue,
       },
     });
@@ -96,6 +98,8 @@ export class CarrierService {
         enabled: dto.enabled ?? carrier.enabled,
         recognition: dto.recognition as unknown as Prisma.InputJsonValue,
         trackingUrlTemplate: dto.trackingUrlTemplate ?? null,
+        crossBorder: dto.crossBorder ?? carrier.crossBorder,
+        orderUrlTemplate: dto.orderUrlTemplate ?? null,
         attakyTransform: (dto.attakyTransform ?? null) as unknown as Prisma.InputJsonValue,
       },
     });

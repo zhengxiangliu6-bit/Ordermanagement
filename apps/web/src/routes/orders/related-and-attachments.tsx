@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../components/ui";
+import { useRouteLoaderData } from "react-router";
+import type { rootLoader } from "../../layouts/root-loader";
 import { api } from "../../api-client/client";
 import type {
   AttachmentView,
@@ -18,6 +20,9 @@ function customerName(snapshot: Record<string, unknown> | null): string {
 export function RelatedOrdersSection({ order }: { order: OrderView }) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const root = useRouteLoaderData<typeof rootLoader>("root");
+  const permissions = new Set(root?.user.permissions ?? []);
+  const canLink = permissions.has("customers:link");
   const [error, setError] = useState<string | null>(null);
 
   const related = useQuery({
@@ -74,9 +79,11 @@ export function RelatedOrdersSection({ order }: { order: OrderView }) {
                     <span className="font-mono text-xs">{entry.displayNumber}</span> ·{" "}
                     {customerName(entry.customerSnapshot)}
                   </span>
-                  <button type="button" onClick={() => unlink(entry.linkId)} className="text-slate-500 hover:text-red-600">
-                    Unlink
-                  </button>
+                  {canLink ? (
+                    <button type="button" onClick={() => unlink(entry.linkId)} className="text-slate-500 hover:text-red-600">
+                      {t("orders.unlink")}
+                    </button>
+                  ) : null}
                 </li>
               ))}
               {(related.data?.manual ?? []).length === 0 ? (
@@ -85,14 +92,16 @@ export function RelatedOrdersSection({ order }: { order: OrderView }) {
             </ul>
           </div>
           <SuggestionList
-            label="Strong suggestions (same email or phone)"
+            label={t("orders.strongSuggestions")}
             orders={related.data?.suggestions.strong ?? []}
             onLink={link}
+            canLink={canLink}
           />
           <SuggestionList
-            label="Weak suggestions (same address)"
+            label={t("orders.weakSuggestions")}
             orders={related.data?.suggestions.weak ?? []}
             onLink={link}
+            canLink={canLink}
           />
         </>
       )}
@@ -104,10 +113,12 @@ function SuggestionList({
   label,
   orders,
   onLink,
+  canLink,
 }: {
   label: string;
   orders: SuggestedOrder[];
   onLink: (orderId: string) => Promise<void>;
+  canLink: boolean;
 }) {
   const { t } = useTranslation();
   if (orders.length === 0) return null;
@@ -124,9 +135,11 @@ function SuggestionList({
                 {new Date(suggestion.createdAt).toLocaleDateString()}
               </span>
             </span>
-            <button type="button" onClick={() => void onLink(suggestion.orderId)} className="text-slate-600 hover:text-slate-900">
-              {t("orders.link")}
-            </button>
+            {canLink ? (
+              <button type="button" onClick={() => void onLink(suggestion.orderId)} className="text-slate-600 hover:text-slate-900">
+                {t("orders.link")}
+              </button>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -145,6 +158,11 @@ export function AttachmentsSection({
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const root = useRouteLoaderData<typeof rootLoader>("root");
+  const permissions = new Set(root?.user.permissions ?? []);
+  const canUpload = permissions.has("attachments:upload");
+  const canDelete = permissions.has("attachments:delete");
+  const canOpen = permissions.has("attachments:open");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,42 +215,50 @@ export function AttachmentsSection({
 
   return (
     <Card title={t("orders.attachments")}>
-      <div className="mt-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void upload(file);
-          }}
-          disabled={busy}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-sm font-medium hover:bg-slate-100 disabled:opacity-40"
-        >
-          {busy ? t("orders.uploading") : t("orders.uploadAttachment")}
-        </button>
-      </div>
+      {canUpload ? (
+        <div className="mt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void upload(file);
+            }}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-ink/20 bg-white px-2.5 py-1 text-sm font-medium hover:bg-pill disabled:opacity-40"
+          >
+            {busy ? t("orders.uploading") : t("orders.uploadAttachment")}
+          </button>
+        </div>
+      ) : null}
       {error ? <p className="mt-1 text-sm text-red-600" role="alert">{error}</p> : null}
       <ul className="mt-3 space-y-1">
         {(attachments.data ?? []).map((attachment) => (
           <li key={attachment.id} className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-1.5 text-sm">
-            <a
-              href={`/api/v1/attachments/${attachment.id}/download`}
-              className="text-slate-700 hover:underline"
-            >
-              {attachment.filename}
-            </a>
+            {canOpen ? (
+              <a
+                href={`/api/v1/attachments/${attachment.id}/download`}
+                className="text-slate-700 hover:underline"
+              >
+                {attachment.filename}
+              </a>
+            ) : (
+              <span className="text-slate-700">{attachment.filename}</span>
+            )}
             <span className="flex items-center gap-3 text-xs text-slate-400">
               {attachment.sizeBytes ?? "?"} bytes ·{" "}
               {new Date(attachment.createdAt).toLocaleString()}
-              <button type="button" disabled={busy} onClick={() => remove(attachment.id)} className="hover:text-red-600 disabled:opacity-40">
-                {t("common.delete")}
-            </button>
+              {canDelete ? (
+                <button type="button" disabled={busy} onClick={() => remove(attachment.id)} className="hover:text-red-600 disabled:opacity-40">
+                  {t("common.delete")}
+                </button>
+              ) : null}
             </span>
           </li>
         ))}

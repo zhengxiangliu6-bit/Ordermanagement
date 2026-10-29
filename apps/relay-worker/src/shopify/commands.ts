@@ -121,8 +121,6 @@ const OrdersFetchPayload = z.object({
 
 const FulfillmentCreatePayload = z.object({
   fulfillmentOrderId: z.string().min(1),
-  /** Defaults to the fulfillment order's remaining quantity. */
-  quantity: z.number().int().positive().optional(),
   trackingNumber: z.string().min(1),
   trackingCompany: z.string().nullable().optional(),
   trackingUrl: z.string().nullable().optional(),
@@ -254,12 +252,11 @@ export class ShopifyCommands {
     if (parsed.trackingCompany) trackingInfo.company = parsed.trackingCompany;
     if (parsed.trackingUrl) trackingInfo.url = parsed.trackingUrl;
 
-    const lineItemsByFulfillmentOrderId: Record<string, unknown>[] = [
-      parsed.quantity === undefined
-        ? { fulfillmentOrderId: parsed.fulfillmentOrderId }
-        : { fulfillmentOrderId: parsed.fulfillmentOrderId, quantity: parsed.quantity },
-    ];
-
+    // 2026-10 shape: FulfillmentInput.lineItemsByFulfillmentOrder is an
+    // array of { fulfillmentOrderId, fulfillmentOrderLineItems? }; leaving
+    // the line items blank fulfills the whole fulfillment order (§12.2
+    // whole-order shipments). The older FulfillmentV2Input field name
+    // lineItemsByFulfillmentOrderId no longer exists on this version.
     const data = await this.client.query<{
       fulfillmentCreate: {
         fulfillment: ShopifyRecord | null;
@@ -267,7 +264,9 @@ export class ShopifyCommands {
       };
     }>(FULFILLMENT_CREATE_MUTATION, {
       fulfillment: {
-        lineItemsByFulfillmentOrderId,
+        lineItemsByFulfillmentOrder: [
+          { fulfillmentOrderId: parsed.fulfillmentOrderId },
+        ],
         notifyCustomer: parsed.notifyCustomer ?? false,
         trackingInfo,
       },

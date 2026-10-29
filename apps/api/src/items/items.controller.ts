@@ -22,6 +22,7 @@ import { ItemsService } from './items.service';
 import {
   CreateItemDto,
   CreateItemVariantDto,
+  CreateItemVariantsBatchDto,
   ListItemsQueryDto,
   UpdateItemDto,
   UpdateItemVariantDto,
@@ -108,6 +109,19 @@ export class ItemsController {
     return this.items.createVariant(id, dto, user.id);
   }
 
+  @Post(':id/variants/batch')
+  @RequirePermissions('items:create')
+  @ApiOperation({
+    summary: 'Generate variants from option axes (cartesian product, auto names).',
+  })
+  createVariantsBatch(
+    @Param('id') id: string,
+    @Body() dto: CreateItemVariantsBatchDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.items.createVariantsBatch(id, dto, user.id);
+  }
+
   @Patch(':id/variants/:variantId')
   @RequirePermissions('items:update')
   @ApiOperation({ summary: 'Update a variant; creates a new content version.' })
@@ -120,6 +134,19 @@ export class ItemsController {
     return this.items.updateVariant(id, variantId, dto, user.id);
   }
 
+  @Delete(':id/variants/:variantId')
+  @RequirePermissions('items:delete')
+  @ApiOperation({
+    summary: 'Permanently delete an unreferenced variant; referenced ones can only be archived.',
+  })
+  deleteVariant(
+    @Param('id') id: string,
+    @Param('variantId') variantId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.items.deleteVariant(id, variantId, user.id);
+  }
+
   @Post(':id/variants/:variantId/archive')
   @RequirePermissions('items:archive')
   @ApiOperation({ summary: 'Archive a variant.' })
@@ -129,6 +156,17 @@ export class ItemsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.items.archiveVariant(id, variantId, user.id);
+  }
+
+  @Post(':id/variants/:variantId/restore')
+  @RequirePermissions('items:archive')
+  @ApiOperation({ summary: 'Restore an archived variant.' })
+  restoreVariant(
+    @Param('id') id: string,
+    @Param('variantId') variantId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.items.restoreVariant(id, variantId, user.id);
   }
 
   @Post(':id/notes')

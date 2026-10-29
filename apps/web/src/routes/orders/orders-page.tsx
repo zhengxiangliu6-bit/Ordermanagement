@@ -1,170 +1,287 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useRouteLoaderData } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/modal";
+import { PageHeader, EmptyState, buttonClasses } from "../../components/ui";
 import { api } from "../../api-client/client";
 import type { CustomerInput, OrderListResponse } from "../../types/order";
+import type { rootLoader } from "../../layouts/root-loader";
+import { OrdersTable } from "./orders-table";
 
 export default function OrdersPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const root = useRouteLoaderData<typeof rootLoader>("root");
+  const canCreateManual = new Set(root?.user.permissions ?? []).has("orders:create-manual");
   const [search, setSearch] = useState("");
   const [source, setSource] = useState<"" | "manual" | "external">("");
+  const [shippingRegionId, setShippingRegionId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [status, setStatus] = useState<"" | "unfulfilled" | "fulfilled" | "cancelled">("");
   const [archived, setArchived] = useState(false);
-  const [page, setPage] = useState(1);
+  const [activePage, setActivePage] = useState(1);
+  const [finishedPage, setFinishedPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error: listError } = useQuery({
-    queryKey: ["orders", { search, source, archived, page }],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/api/v1/orders", {
-        params: {
-          query: {
-            search: search || undefined,
-            source: (source || undefined) as "manual" | "external" | undefined,
-            archived: archived || undefined,
-            page,
-            pageSize: 20,
-          },
+  const resetPages = () => {
+    setActivePage(1);
+    setFinishedPage(1);
+  };
+
+  const fetchOrders = async (stageGroup: "active" | "finished", page: number) => {
+    const { data, response } = await api.GET("/api/v1/orders", {
+      params: {
+        query: {
+          search: search || undefined,
+          source: (source || undefined) as "manual" | "external" | undefined,
+          archived: archived || undefined,
+          shippingRegionId: shippingRegionId || undefined,
+          categoryId: categoryId || undefined,
+          status: (status || undefined) as
+            | "unfulfilled"
+            | "fulfilled"
+            | "cancelled"
+            | undefined,
+          stageGroup,
+          page,
+          pageSize: 10,
         },
-      });
-      if (!response.ok || !data) throw new Error(`List failed (${response.status})`);
-      return data as OrderListResponse;
+      },
+    });
+    if (!response.ok || !data) throw new Error(`List failed (${response.status})`);
+    return data as OrderListResponse;
+  };
+
+  const active = useQuery({
+    queryKey: ["orders", "active", { search, source, archived, shippingRegionId, categoryId, status, activePage }],
+    queryFn: () => fetchOrders("active", activePage),
+  });
+  const finished = useQuery({
+    queryKey: ["orders", "finished", { search, source, archived, shippingRegionId, categoryId, status, finishedPage }],
+    queryFn: () => fetchOrders("finished", finishedPage),
+  });
+
+  const categories = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/api/v1/categories");
+      if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
+      return data as unknown as Array<{ id: string; name: string }>;
+    },
+  });
+
+  const shippingRegions = useQuery({
+    queryKey: ["shipping-regions"],
+    queryFn: async () => {
+      const { data, response } = await api.GET("/api/v1/shipping-regions");
+      if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
+      return data as unknown as Array<{ id: string; name: string }>;
     },
   });
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("orders.title")}</h1>
-        <button
-          type="button"
-          onClick={() => {
-            setCreating((value) => !value);
-            setError(null);
-          }}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          {creating ? t("common.cancel") : t("orders.createManualOrder")}
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title={t("orders.title")}
+        actions={
+          canCreateManual ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCreating((value) => !value);
+                setError(null);
+              }}
+              className={creating ? buttonClasses.secondary : buttonClasses.primary}
+            >
+              {creating ? t("common.cancel") : t("orders.createManualOrder")}
+            </button>
+          ) : undefined
+        }
+      />
 
       {creating ? (
         <Modal title={t("orders.createManualOrder")} onClose={() => setCreating(false)}>
           {error ? (
             <p className="mb-3 text-sm text-red-600" role="alert">{error}</p>
           ) : null}
-
-              {error ? (
-                <p className="mb-3 text-sm text-red-600" role="alert">{error}</p>
-              ) : null}
-              <CreateOrderForm
-                onDone={(createdId) => {
-                  setCreating(false);
-                  queryClient.invalidateQueries({ queryKey: ["orders"] });
-                  if (createdId) navigate(`/orders/${createdId}`);
-                }}
-                onError={setError}
-              />
-                    </Modal>
+          <CreateOrderForm
+            onDone={(createdId) => {
+              setCreating(false);
+              queryClient.invalidateQueries({ queryKey: ["orders"] });
+              if (createdId) navigate(`/orders/${createdId}`);
+            }}
+            onError={setError}
+          />
+        </Modal>
       ) : null}
 
-      <div className="mt-4 flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex flex-wrap overflow-hidden rounded-xl border border-ink/15">
+          {[
+            { id: "", name: t("orders.regionAll") },
+            ...(shippingRegions.data ?? []),
+          ].map((region) => (
+            <button
+              key={region.id || "all"}
+              type="button"
+              onClick={() => {
+                setShippingRegionId(region.id);
+                resetPages();
+              }}
+              className={`px-3.5 py-1.5 transition-colors ${
+                shippingRegionId === region.id
+                  ? "bg-ink font-semibold text-white"
+                  : "bg-white text-slate-600 hover:bg-pill hover:text-ink"
+              }`}
+            >
+              {region.name}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setCategoryId("");
+              resetPages();
+            }}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              categoryId === "" ? "bg-brand text-white" : "bg-pill text-slate-600 hover:text-ink"
+            }`}
+          >
+            {t("orders.categoryAll")}
+          </button>
+          {(categories.data ?? [])
+            .filter((category) => category.name !== "__disabled__")
+            .map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => {
+                  setCategoryId(categoryId === category.id ? "" : category.id);
+                  resetPages();
+                }}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  categoryId === category.id
+                    ? "bg-brand text-white"
+                    : "bg-pill text-slate-600 hover:text-ink"
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-sm">
         <input
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
-            setPage(1);
+            resetPages();
           }}
           placeholder={t("orders.searchPlaceholder")}
-          className="w-64 rounded border border-slate-300 px-2 py-1"
+          className="w-64 rounded-lg border border-ink/20 bg-white px-2.5 py-1.5"
         />
         <select
           value={source}
           onChange={(event) => {
             setSource(event.target.value as "" | "manual" | "external");
-            setPage(1);
+            resetPages();
           }}
-          className="rounded border border-slate-300 px-2 py-1"
+          className="rounded-lg border border-ink/20 bg-white px-2 py-1.5"
         >
           <option value="">{t("orders.allSources")}</option>
           <option value="manual">{t("orders.sourceManual")}</option>
           <option value="external">{t("orders.sourceExternal")}</option>
         </select>
-        <label className="flex items-center gap-1">
+        <select
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value as "" | "unfulfilled" | "fulfilled" | "cancelled");
+            resetPages();
+          }}
+          className="rounded-lg border border-ink/20 bg-white px-2 py-1.5"
+          aria-label={t("orders.statusFilter")}
+        >
+          <option value="">{t("orders.allStatuses")}</option>
+          <option value="unfulfilled">{t("orders.statusUnfulfilled")}</option>
+          <option value="fulfilled">{t("orders.statusFulfilled")}</option>
+          <option value="cancelled">{t("orders.statusCancelled")}</option>
+        </select>
+        <label className="flex items-center gap-1.5 text-slate-600">
           <input
             type="checkbox"
             checked={archived}
             onChange={(event) => {
               setArchived(event.target.checked);
-              setPage(1);
+              resetPages();
             }}
           />
           {t("orders.showArchived")}
         </label>
       </div>
 
-      <table className="mt-3 w-full border-collapse bg-white text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500">
-            <th className="px-3 py-2 font-medium">{t("orders.number")}</th>
-            <th className="px-3 py-2 font-medium">{t("orders.source")}</th>
-            <th className="px-3 py-2 font-medium">{t("orders.customer")}</th>
-            <th className="px-3 py-2 font-medium">{t("orders.lines")}</th>
-            <th className="px-3 py-2 font-medium">{t("orders.created")}</th>
-            <th className="px-3 py-2 font-medium">{t("orders.status")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {isLoading ? (
-            <tr><td colSpan={6} className="px-3 py-6 text-slate-400">{t("common.loading")}</td></tr>
-          ) : isError ? (
-            <tr><td colSpan={6} className="px-3 py-6 text-red-600">{(listError as Error).message}</td></tr>
-          ) : data && data.orders.length > 0 ? (
-            data.orders.map((order) => (
-              <tr
-                key={order.id}
-                onClick={() => navigate(`/orders/${order.id}`)}
-                className="cursor-pointer border-b border-slate-100 hover:bg-slate-50"
-              >
-                <td className="px-3 py-2 font-mono text-xs">{order.displayNumber}</td>
-                <td className="px-3 py-2 capitalize">{order.source}</td>
-                <td className="px-3 py-2">
-                  {String(order.customerSnapshot?.name ?? "—")}
-                </td>
-                <td className="px-3 py-2">{order._count?.lines ?? 0}</td>
-                <td className="px-3 py-2 text-slate-500">
-                  {new Date(order.createdAt).toLocaleString()}
-                </td>
-                <td className="px-3 py-2">
-                  {order.archivedAt ? (
-                    <span className="text-amber-700">{t("common.archived")}</span>
-                  ) : (
-                    <span className="text-emerald-700">{t("common.active")}</span>
-                  )}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr><td colSpan={6} className="px-3 py-6 text-slate-400">{t("orders.noOrdersFound")}</td></tr>
-          )}
-        </tbody>
-      </table>
-
-      {data && data.pageCount > 1 ? (
-        <div className="mt-3 flex items-center gap-3 text-sm">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40">
-            {t("common.previous")}
-          </button>
-          <span>{t("common.page", { page: data.page, pageCount: data.pageCount, total: data.total })}</span>
-          <button type="button" disabled={page >= data.pageCount} onClick={() => setPage((value) => value + 1)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40">
-            {t("common.next")}
-          </button>
+      <section className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-semibold text-ink">{t("orders.activeTable")}</h2>
+          <span className="text-xs text-slate-400">
+            {t("common.page", {
+              page: active.data?.page ?? 1,
+              pageCount: active.data?.pageCount ?? 1,
+              total: active.data?.total ?? 0,
+            })}
+          </span>
         </div>
-      ) : null}
+        {active.isLoading ? (
+          <p className="text-sm text-slate-400">{t("common.loading")}</p>
+        ) : active.isError ? (
+          <p className="text-sm text-red-600">{(active.error as Error).message}</p>
+        ) : active.data && active.data.orders.length > 0 ? (
+          <OrdersTable
+            orders={active.data.orders}
+            page={active.data.page}
+            pageCount={active.data.pageCount}
+            total={active.data.total}
+            onPage={setActivePage}
+            onOpen={(id) => navigate(`/orders/${id}`)}
+          />
+        ) : (
+          <EmptyState message={t("orders.noActiveOrders")} />
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-semibold text-ink">{t("orders.finishedTable")}</h2>
+          <span className="text-xs text-slate-400">
+            {t("common.page", {
+              page: finished.data?.page ?? 1,
+              pageCount: finished.data?.pageCount ?? 1,
+              total: finished.data?.total ?? 0,
+            })}
+          </span>
+        </div>
+        {finished.isLoading ? (
+          <p className="text-sm text-slate-400">{t("common.loading")}</p>
+        ) : finished.isError ? (
+          <p className="text-sm text-red-600">{(finished.error as Error).message}</p>
+        ) : finished.data && finished.data.orders.length > 0 ? (
+          <OrdersTable
+            orders={finished.data.orders}
+            page={finished.data.page}
+            pageCount={finished.data.pageCount}
+            total={finished.data.total}
+            onPage={setFinishedPage}
+            onOpen={(id) => navigate(`/orders/${id}`)}
+          />
+        ) : (
+          <EmptyState message={t("orders.noFinishedOrders")} />
+        )}
+      </section>
     </div>
   );
 }
@@ -238,6 +355,25 @@ function CreateOrderForm({
     onDone((data as { id: string }).id);
   };
 
+  const pickVariant = (index: number, variantId: string) => {
+    const chosen = (variantOptions.data ?? []).find((option) => option.id === variantId);
+    setLines(
+      lines.map((line, i) => {
+        if (i !== index) return line;
+        // Selecting an internal item fills the product name when the line
+        // has no hand-typed name yet (or was auto-filled from a variant).
+        const autoName = chosen ? `${chosen.item.name}${chosen.name && chosen.name !== "Default" ? ` · ${chosen.name}` : ""}` : "";
+        const title = !line.title.trim() || wasAutoFilled(line.title, chosen?.item.name ?? "")
+          ? autoName || line.title
+          : line.title;
+        return { ...line, itemVariantId: variantId, title };
+      }),
+    );
+  };
+
+  const wasAutoFilled = (current: string, itemName: string) =>
+    itemName.length > 0 && (current === itemName || current.startsWith(`${itemName} ·`));
+
   return (
     <form
       className="mt-4 rounded border border-slate-200 bg-white p-4 text-sm"
@@ -247,37 +383,50 @@ function CreateOrderForm({
       }}
     >
       <div className="font-medium">{t("orders.orderLines")}</div>
+      <div className="mt-1 text-xs text-slate-400">{t("orders.linesHint")}</div>
       {lines.map((line, index) => (
-        <div key={index} className="mt-2 flex items-center gap-2">
+        <div key={index} className="mt-2 flex flex-wrap items-center gap-2">
           <input
             value={line.title}
             onChange={(event) =>
               setLines(lines.map((l, i) => (i === index ? { ...l, title: event.target.value } : l)))
             }
             placeholder={t("orders.lineTitle")}
-            className="w-72 rounded border border-slate-300 px-2 py-1"
+            className="w-64 rounded-lg border border-ink/20 px-2 py-1"
+            aria-label={t("orders.lineTitle")}
           />
           <input
             type="number"
             min={1}
             value={line.quantity}
+            title={t("orders.lineQty")}
+            aria-label={t("orders.lineQty")}
             onChange={(event) =>
               setLines(lines.map((l, i) => (i === index ? { ...l, quantity: Number(event.target.value) } : l)))
             }
-            className="w-20 rounded border border-slate-300 px-2 py-1"
+            className="w-16 rounded-lg border border-ink/20 px-2 py-1"
           />
           <select
             value={line.itemVariantId ?? ""}
-            onChange={(event) =>
-              setLines(lines.map((l, i) => (i === index ? { ...l, itemVariantId: event.target.value } : l)))
-            }
-            className="w-64 rounded border border-slate-300 px-2 py-1"
+            title={t("orders.lineItem")}
+            aria-label={t("orders.lineItem")}
+            onChange={(event) => pickVariant(index, event.target.value)}
+            className="w-64 rounded-lg border border-ink/20 bg-white px-2 py-1"
           >
             <option value="">{t("orders.noItemLink")}</option>
-            {(variantOptions.data ?? []).map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.itemCode} · {option.name}
-              </option>
+            {Object.entries(
+              (variantOptions.data ?? []).reduce<Record<string, VariantOption[]>>((groups, option) => {
+                (groups[option.item.name] ??= []).push(option);
+                return groups;
+              }, {}),
+            ).map(([itemName, groupVariants]) => (
+              <optgroup key={itemName} label={itemName}>
+                {groupVariants.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} ({option.itemCode})
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           {lines.length > 1 ? (
@@ -287,40 +436,39 @@ function CreateOrderForm({
           ) : null}
         </div>
       ))}
-      <button type="button" onClick={() => setLines([...lines, { title: "", quantity: 1, itemVariantId: "" }])} className="mt-1 text-sm text-slate-500 hover:text-slate-800">
-        {t("orders.addLine")}
-      </button>
-      <div className="mt-1 text-xs text-slate-400">
-        Variant list {variantQuery ? `matching "${variantQuery}"` : "(first 20)"} —{" "}
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setLines([...lines, { title: "", quantity: 1, itemVariantId: "" }])} className="text-sm text-slate-500 hover:text-slate-800">
+          {t("orders.addLine")}
+        </button>
         <input
           value={variantQuery}
           onChange={(event) => setVariantQuery(event.target.value)}
           placeholder={t("orders.filterByCodeName")}
-          className="rounded border border-slate-300 px-1.5 py-0.5"
+          className="ml-auto w-56 rounded-lg border border-ink/20 px-2 py-1 text-xs"
         />
       </div>
 
       <div className="mt-4 grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2">
         <label htmlFor="customer-name" className="self-center font-medium">{t("orders.customerName")}</label>
-        <input id="customer-name" name="customerName" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="customer-name" name="customerName" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="customer-phone" className="self-center font-medium">{t("orders.phone")}</label>
-        <input id="customer-phone" name="customerPhone" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="customer-phone" name="customerPhone" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="customer-email" className="self-center font-medium">{t("orders.email")}</label>
-        <input id="customer-email" name="customerEmail" type="email" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="customer-email" name="customerEmail" type="email" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="address-line1" className="self-center font-medium">{t("orders.address")}</label>
-        <input id="address-line1" name="addressLine1" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="address-line1" name="addressLine1" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="city" className="self-center font-medium">{t("orders.city")}</label>
-        <input id="city" name="city" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="city" name="city" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="postal-code" className="self-center font-medium">{t("orders.postalCode")}</label>
-        <input id="postal-code" name="postalCode" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="postal-code" name="postalCode" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="country" className="self-center font-medium">{t("orders.country")}</label>
-        <input id="country" name="country" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="country" name="country" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="delivery-method" className="self-center font-medium">{t("orders.deliveryMethod")}</label>
-        <input id="delivery-method" name="deliveryMethod" className="rounded border border-slate-300 px-2 py-1" />
+        <input id="delivery-method" name="deliveryMethod" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
         <label htmlFor="buyer-note" className="self-center font-medium">{t("orders.buyerNote")}</label>
-        <textarea id="buyer-note" name="buyerNote" rows={2} className="rounded border border-slate-300 px-2 py-1" />
+        <textarea id="buyer-note" name="buyerNote" rows={2} className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
       </div>
-      <button type="submit" disabled={busy} className="mt-3 rounded bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-800 disabled:opacity-40">
+      <button type="submit" disabled={busy} className={`mt-3 ${buttonClasses.primary}`}>
         {busy ? t("orders.creating") : t("orders.createOrder")}
       </button>
     </form>

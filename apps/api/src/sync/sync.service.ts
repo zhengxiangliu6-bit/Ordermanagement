@@ -5,13 +5,16 @@ import { AuditService } from '../audit/audit.service';
 import type { Store } from '@prisma/client';
 import type { ExternalListing, ExternalOrder } from '../platforms/platform-adapter';
 import { resolveReviewRequired } from './policy.resolver';
-import { detectConflict, stableHash } from './conflict';
+import { stableHash } from './conflict';
+import { normalizeFulfillmentStatus } from '../orders/fulfillment';
 
 export interface SyncSummary {
   listings: { total: number; merged: number; staged: number; skipped: number };
   orders: { total: number; merged: number; staged: number; skipped: number; conflicts: number };
 }
 
+// Retired with the listing review queue (M7): kept for reference if staging returns.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function hashPayload(payload: unknown): string {
   // Recursive stable hash: nested objects must participate, otherwise
   // content changes (e.g. variant edits) produce identical hashes and the
@@ -26,6 +29,7 @@ function listingPayload(listing: ExternalListing) {
     description: listing.description ?? null,
     variants: listing.variants.map((variant) => ({
       externalVariantId: variant.externalVariantId,
+      title: variant.title ?? null,
       externalSku: variant.externalSku ?? null,
       optionValues: variant.optionValues ?? null,
     })),
@@ -67,6 +71,22 @@ function orderExternalView(order: ExternalOrder) {
     buyerNote: order.buyerNote ?? null,
     deliveryMethod: order.deliveryMethod ?? null,
   };
+}
+
+/** Platform cancellation timestamp, if the order is cancelled on the platform. */
+function platformCancelledAt(statusRaw: unknown): Date | null {
+  const raw = (statusRaw as Record<string, unknown> | null)?.cancelledAt;
+  if (typeof raw !== 'string' || !raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Platform payment status, normalized for workflow eligibility. */
+function paymentStatusOf(statusRaw: unknown): string | null {
+  const raw = (statusRaw as Record<string, unknown> | null)?.financialStatus;
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.trim().toUpperCase();
+  return normalized || null;
 }
 
 function externalEquals(a: unknown, b: unknown): boolean {
@@ -127,44 +147,17 @@ export class SyncService {
       where: { storeId_externalListingId: { storeId: store.id, externalListingId: listing.externalListingId } },
     });
     const payload = listingPayload(listing);
-    const payloadHash = hashPayload(payload);
-    const contentType = existing ? 'listings.updates' : 'listings.new';
-    const reviewRequired = resolveReviewRequired(store.reviewPolicy, contentType);
+    void payload;
 
-    // Deduplicate: same content already pending or already rejected (§15).
-    const duplicate = await this.prisma.reviewRecord.findFirst({
-      where: {
-        type: 'listing',
-        storeId: store.id,
-        payloadHash,
-        OR: [{ status: 'pending' }, { status: 'rejected' }],
-      },
-    });
-    if (duplicate) return 'skipped';
     if (existing && externalEquals(await this.currentListingSnapshot(existing.id), payload)) {
       return 'skipped';
     }
 
-    if (!reviewRequired) {
-      await this.mergeListing(store, listing, existing?.id ?? null);
-      return 'merged';
-    }
-
-    await this.prisma.reviewRecord.create({
-      data: {
-        type: 'listing',
-        status: 'pending',
-        storeId: store.id,
-        subjectId: existing?.id ?? null,
-        payload: {
-          kind: existing ? 'update' : 'new',
-          externalListingId: listing.externalListingId,
-          listing: payload,
-        } as Prisma.InputJsonValue,
-        payloadHash,
-      },
-    });
-    return 'staged';
+    // M7 decision (2026-10-21, boss ruling #17): the Listing review queue is
+    // retired - platform listing changes merge into the mirror silently.
+    // Only the product mapping (ListingVariant -> ItemVariant) is governed.
+    await this.mergeListing(store, listing, existing?.id ?? null);
+    return 'merged';
   }
 
   /** Applies listing content into the official mirror (also used on approval). */
@@ -199,10 +192,12 @@ export class SyncService {
           create: {
             listingId: dbListing.id,
             externalVariantId: variant.externalVariantId,
+            externalTitle: variant.title ?? null,
             externalSku: variant.externalSku,
             optionValues: (variant.optionValues ?? undefined) as Prisma.InputJsonValue,
           },
           update: {
+            externalTitle: variant.title ?? null,
             externalSku: variant.externalSku,
             optionValues: (variant.optionValues ?? undefined) as Prisma.InputJsonValue,
           },
@@ -255,54 +250,162 @@ export class SyncService {
     const existing = await this.prisma.order.findUnique({
       where: { storeId_externalOrderId: { storeId: store.id, externalOrderId: order.externalOrderId } },
     });
-    const incoming = orderExternalView(order);
-    const payloadHash = stableHash(incoming);
-
     if (!existing) {
-      const reviewRequired = resolveReviewRequired(store.reviewPolicy, 'orders.new');
-      if (!reviewRequired) {
-        await this.createOfficialExternalOrder(store, order);
-        return 'merged';
-      }
-      await this.stageOrderReview(store, order, 'new_order', payloadHash);
-      return 'staged';
-    }
+      // M7: the order is created immediately; its stage decides whether it
+      // is visible in the review/packing queues. Already fulfilled or
+      // cancelled orders import straight to their terminal stage.
+      const createdId = await this.createOfficialExternalOrder(store, order);
+      const cancelled = platformCancelledAt(order.statusRaw) !== null;
+      const fulfilled = normalizeFulfillmentStatus(order.statusRaw) === 'FULFILLED';
+      const stage = cancelled
+        ? 'cancelled'
+        : fulfilled
+          ? 'completed'
+          : resolveReviewRequired(store.reviewPolicy, 'orders.new')
+            ? 'review'
+            : 'packing';
 
-    if (existing.lastAcceptedExternal) {
-      const verdict = detectConflict({
-        lastAcceptedExternal: existing.lastAcceptedExternal,
-        currentInternal: {
-          statusRaw: existing.statusRaw,
-          customerSnapshot: existing.customerSnapshot,
-          buyerNote: existing.buyerNote,
-          deliveryMethod: existing.deliveryMethod,
+      await this.prisma.order.update({
+        where: { id: createdId },
+        data: {
+          stage,
+          stageUpdatedAt: new Date(),
+          stageUpdatedBy: 'system',
+          paymentStatus: paymentStatusOf(order.statusRaw),
         },
-        incomingExternal: incoming,
       });
-      if (verdict === 'no-change') {
-        // Display-only mirror: platform-side fulfillments may have changed
-        // without touching any reviewable field; keep them current silently.
-        await this.refreshPlatformFulfillmentMirror(existing, order);
-        return 'skipped';
-      }
-
-      const policyReview = resolveReviewRequired(store.reviewPolicy, 'orders.updates');
-      if (verdict === 'conflict' || policyReview) {
-        await this.stageOrderReview(store, order, 'order_update', payloadHash, verdict === 'conflict');
+      await this.recordStage(createdId, null, stage, 'imported', 'system');
+      if (stage === 'review') {
+        await this.createReviewForExistingOrder(createdId, order, store);
         return 'staged';
       }
-    } else {
-      // First update after import: remember the accepted external base.
-      await this.prisma.order.update({
-        where: { id: existing.id },
-        data: { lastAcceptedExternal: orderExternalView(order) as Prisma.InputJsonValue },
-      });
-      await this.refreshPlatformFulfillmentMirror(existing, order);
-      return 'skipped';
+      return 'merged';
     }
 
+    // Updates are platform facts: apply them silently and keep the workflow
+    // stage in sync (payment received / cancelled / fulfilled elsewhere).
     await this.applyExternalUpdate(existing.id, order);
+    await this.applyStageForUpdate(existing, order);
     return 'merged';
+  }
+
+  /** Creates a pending review record pointing at an already-created order. */
+  private async createReviewForExistingOrder(
+    orderId: string,
+    order: ExternalOrder,
+    store: Store,
+  ): Promise<void> {
+    const duplicate = await this.prisma.reviewRecord.findFirst({
+      where: { type: 'new_order', subjectId: orderId, status: 'pending' },
+    });
+    if (duplicate) return;
+
+    const dbOrder = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { lines: { orderBy: { createdAt: 'asc' } } },
+    });
+    await this.prisma.reviewRecord.create({
+      data: {
+        type: 'new_order',
+        status: 'pending',
+        storeId: store.id,
+        subjectId: orderId,
+        payload: {
+          existingOrder: true,
+          storeName: store.displayName,
+          platform: store.platform,
+          order: {
+            externalOrderId: order.externalOrderId,
+            displayNumber: dbOrder.displayNumber,
+            statusRaw: (order.statusRaw ?? {}) as Prisma.InputJsonValue,
+            customer: (dbOrder.customerSnapshot ?? {}) as Prisma.InputJsonValue,
+            buyerNote: dbOrder.buyerNote,
+            deliveryMethod: dbOrder.deliveryMethod,
+            sourceUpdatedAt: order.sourceUpdatedAt,
+            lines: dbOrder.lines.map((line) => ({
+              externalLineId: line.externalLineId ?? line.id,
+              title: line.title ?? '',
+              quantity: line.quantity,
+              listingExternalId: '',
+              variantExternalId: line.itemVariantId ?? '',
+            })),
+          },
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  /** Keeps the workflow stage consistent with platform facts. */
+  private async applyStageForUpdate(
+    existing: {
+      id: string;
+      stage: string;
+      storeId: string | null;
+    },
+    order: ExternalOrder,
+  ): Promise<void> {
+    const cancelledAt = platformCancelledAt(order.statusRaw);
+    const fulfilled = normalizeFulfillmentStatus(order.statusRaw) === 'FULFILLED';
+    const now = new Date();
+
+    if (cancelledAt && existing.stage !== 'cancelled' && existing.stage !== 'completed') {
+      await this.prisma.order.update({
+        where: { id: existing.id },
+        data: {
+          stage: 'cancelled',
+          cancelledAt,
+          stageUpdatedAt: now,
+          stageUpdatedBy: 'system',
+          version: { increment: 1 },
+        },
+      });
+      await this.prisma.shipment.updateMany({
+        where: { orderId: existing.id, voidedAt: null },
+        data: {
+          voidedAt: now,
+          voidedBy: 'system',
+          voidReason: 'platform cancelled',
+        },
+      });
+      await this.prisma.reviewRecord.updateMany({
+        where: { type: 'new_order', subjectId: existing.id, status: 'pending' },
+        data: { status: 'cancelled', decidedAt: now },
+      });
+      await this.recordStage(existing.id, existing.stage, 'cancelled', 'platform_cancelled', 'system');
+      return;
+    }
+
+    if (fulfilled && existing.stage !== 'completed' && existing.stage !== 'cancelled') {
+      await this.prisma.order.update({
+        where: { id: existing.id },
+        data: {
+          stage: 'completed',
+          fulfillmentStatus: 'FULFILLED',
+          stageUpdatedAt: now,
+          stageUpdatedBy: 'system',
+          version: { increment: 1 },
+        },
+      });
+      await this.prisma.reviewRecord.updateMany({
+        where: { type: 'new_order', subjectId: existing.id, status: 'pending' },
+        data: { status: 'auto_closed', decidedAt: now },
+      });
+      await this.recordStage(existing.id, existing.stage, 'completed', 'platform_fulfilled', 'system');
+      return;
+    }
+
+  }
+
+  private async recordStage(
+    orderId: string,
+    fromStage: string | null,
+    toStage: string,
+    action: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.prisma.orderStageEvent.create({
+      data: { orderId, fromStage, toStage, action, actorId },
+    });
   }
 
   /**
@@ -452,9 +555,18 @@ export class SyncService {
         externalOrderId: order.externalOrderId,
         displayNumber: order.displayNumber,
         statusRaw: order.statusRaw as Prisma.InputJsonValue,
+        fulfillmentStatus: normalizeFulfillmentStatus(order.statusRaw),
+        paymentStatus: paymentStatusOf(order.statusRaw),
+        ...(platformCancelledAt(order.statusRaw)
+          ? { cancelledAt: platformCancelledAt(order.statusRaw) }
+          : {}),
         customerSnapshot: externalView.customerSnapshot as Prisma.InputJsonValue,
         buyerNote: order.buyerNote,
         deliveryMethod: order.deliveryMethod,
+        // Mirror a platform cancellation at import so the order shows up as
+        // cancelled without a manual action. Later platform status changes
+        // are not auto-synced yet (deferred by the boss, 2026-10-21).
+        cancelledAt: platformCancelledAt(order.statusRaw),
         rawSource: { order, capturedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue,
         lastAcceptedExternal: externalView as Prisma.InputJsonValue,
         createdBy: null,
@@ -486,6 +598,7 @@ export class SyncService {
       where: { id: orderId },
       data: {
         statusRaw: order.statusRaw as Prisma.InputJsonValue,
+        fulfillmentStatus: normalizeFulfillmentStatus(order.statusRaw),
         customerSnapshot: externalView.customerSnapshot as Prisma.InputJsonValue,
         buyerNote: order.buyerNote,
         deliveryMethod: order.deliveryMethod,
