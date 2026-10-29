@@ -123,6 +123,7 @@ const zh = {
     failed: "修改密码失败（{{status}}）。",
   },
   items: {
+    previewImagesFor: "预览图片：{{name}}",
     uploadFailed: "上传失败（{{status}}）。仅支持静态 JPEG、PNG、WebP，最多 2400 万像素；429 表示服务器忙，请稍后重试。",
     uploadTooLarge: "文件超过 10 MiB。",
     uploadBatchLimit: "每次最多选择 20 张图片，可分批继续上传。",

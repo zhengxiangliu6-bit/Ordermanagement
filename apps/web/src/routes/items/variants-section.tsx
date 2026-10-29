@@ -9,9 +9,7 @@ import {
   BatchVariantForm,
   type VariantInput,
 } from "./variant-form";
-import { thumbnailUrl } from "./image-sources";
-import { SafeImage } from "./item-images";
-import { imageUrls } from "./image-urls-editor";
+import { ImagePreviewButton } from "./image-preview";
 
 export function VariantsSection({
   item,
@@ -185,14 +183,10 @@ export function VariantsSection({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
-                    {imageUrls(variant.images)[0] && (
-                      <SafeImage
-                        key={imageUrls(variant.images)[0]}
-                        src={thumbnailUrl(imageUrls(variant.images)[0])}
-                        alt={variant.name}
-                        className="h-10 w-10 shrink-0 rounded border border-ink/10 object-contain"
-                      />
-                    )}
+                    <ImagePreviewButton
+                      images={variant.images}
+                      name={variant.name}
+                    />
                     <span>{variant.name}</span>
                   </div>
                 </td>

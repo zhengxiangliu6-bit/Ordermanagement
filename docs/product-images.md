@@ -66,3 +66,23 @@ This includes the preceding product-screen improvements and the local-upload ext
 | New | `apps/web/src/routes/items/variants-section.spec.tsx` |
 | New | `apps/web/src/routes/items/variants-section.tsx` |
 | New | `docs/product-images.md` |
+
+## Variant preview follow-up
+
+Variant thumbnails in the product detail table now open a shared image viewer. The viewer supports all of that variant's images, previous/next controls, arrow keys, Escape, focus containment/restoration and page-scroll locking. Only the selected display image is mounted. The existing product/inventory detail gallery uses the same viewer. Preview clicks do not trigger parent row navigation or require item-edit permission.
+
+Modified files in this follow-up:
+
+- `apps/web/src/routes/items/variants-section.tsx`
+- `apps/web/src/routes/items/variants-section.spec.tsx`
+- `apps/web/src/routes/items/item-images.tsx`
+- `apps/web/src/i18n/locales/en.ts`
+- `apps/web/src/i18n/locales/zh.ts`
+- `docs/product-images.md`
+
+New files:
+
+- `apps/web/src/routes/items/image-preview.tsx`
+- `apps/web/src/routes/items/safe-image.tsx`
+
+No database migration. Adding thumbnail preview buttons to the inventory overview and product list remains a proposed follow-up, not part of this fix.

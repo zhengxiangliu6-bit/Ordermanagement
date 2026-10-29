@@ -89,3 +89,47 @@ describe("variant dialog workflows", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+it("opens all variant images from a thumbnail without edit permission or eager display loads", () => {
+  const first = `/api/v1/item-images/${"a".repeat(64)}/display.webp`;
+  const second = `/api/v1/item-images/${"b".repeat(64)}/display.webp`;
+  const withImages = {
+    ...item,
+    variants: [{ ...item.variants![0], images: [first, second] }],
+  } as unknown as Item;
+  const navigate = vi.fn();
+  const { container } = render(
+    <div onClick={navigate}>
+      <VariantsSection
+        item={withImages}
+        permissions={new Set()}
+        onChanged={vi.fn()}
+      />
+    </div>,
+  );
+  const thumbnail = screen.getByRole("button", {
+    name: "Preview images: 黑色",
+  });
+  expect(container.querySelectorAll("img")).toHaveLength(1);
+  expect(container.querySelector("img")).toHaveAttribute(
+    "src",
+    first.replace("display.webp", "thumbnail.webp"),
+  );
+  thumbnail.focus();
+  fireEvent.click(thumbnail);
+  const dialog = screen.getByRole("dialog", { name: "Preview images: 黑色" });
+  expect(dialog.querySelector("img")).toHaveAttribute("src", first);
+  expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  expect(document.body.style.overflow).toBe("hidden");
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(dialog.querySelector("img")).toHaveAttribute("src", second);
+  expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  fireEvent.keyDown(dialog, { key: "ArrowLeft" });
+  expect(dialog.querySelector("img")).toHaveAttribute("src", first);
+  fireEvent.keyDown(dialog, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(thumbnail).toHaveFocus();
+  expect(document.body.style.overflow).not.toBe("hidden");
+  expect(navigate).not.toHaveBeenCalled();
+  expect(api.PATCH).not.toHaveBeenCalled();
+});

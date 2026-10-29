@@ -123,6 +123,7 @@ const en = {
     failed: "Password change failed ({{status}}).",
   },
   items: {
+    previewImagesFor: "Preview images: {{name}}",
     uploadFailed: "Upload failed ({{status}}). Use static JPEG, PNG or WebP up to 24 megapixels. Status 429 means busy; retry shortly.",
     uploadTooLarge: "File exceeds 10 MiB.",
     uploadBatchLimit: "Select up to 20 images at a time. Upload further batches afterward.",
