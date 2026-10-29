@@ -1,3 +1,4 @@
+import { CategorySelect } from "./category-select";
 import { ImagePreviewButton } from "./image-preview";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -66,7 +67,7 @@ export default function ItemsPage() {
           images: newImages.map((url) => url.trim()).filter(Boolean),
           description:
             String(formData.get("description") ?? "").trim() || undefined,
-          category: String(formData.get("category") ?? "").trim() || undefined,
+          categoryId: String(formData.get("categoryId") ?? "").trim() || null,
         },
       });
       if (!response.ok) {
@@ -76,7 +77,7 @@ export default function ItemsPage() {
       if (response.ok && data) {
         setCreating(false);
         setNewImages([]);
-        await queryClient.invalidateQueries({ queryKey: ["items"] });
+        await Promise.all(["items", "item-variants", "review-item-variants", "inventory"].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
         navigate(`/items/${(data as { id: string }).id}`);
       }
     } catch {
@@ -154,11 +155,7 @@ export default function ItemsPage() {
             <label htmlFor="item-category" className="self-center font-medium">
               {t("items.category")}
             </label>
-            <input
-              id="item-category"
-              name="category"
-              className="rounded-lg border border-ink/20 bg-white px-2 py-1.5"
-            />
+            <CategorySelect id="item-category" />
             <label
               htmlFor="item-description"
               className="self-center font-medium"

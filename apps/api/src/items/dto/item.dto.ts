@@ -16,6 +16,11 @@ import {
 } from 'class-validator';
 
 export class CreateItemDto {
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Managed category ID; null clears it.' })
+  @IsOptional()
+  @IsString()
+  categoryId?: string | null;
+
   @ApiProperty({ minLength: 1, maxLength: 200 })
   @IsString()
   @MinLength(1)
@@ -54,6 +59,11 @@ export class CreateItemDto {
 }
 
 export class UpdateItemDto {
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Managed category ID; null clears it.' })
+  @IsOptional()
+  @IsString()
+  categoryId?: string | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

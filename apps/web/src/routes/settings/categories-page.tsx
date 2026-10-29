@@ -7,7 +7,6 @@ import { PageHeader, Card, Badge, EmptyState, buttonClasses } from "../../compon
 interface CategoryRow {
   id: string;
   name: string;
-  trackingUrlTemplate: string | null;
   enabled: boolean;
   sortOrder: number;
 }
@@ -18,7 +17,7 @@ export default function CategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", trackingUrlTemplate: "", sortOrder: 0 });
+  const [form, setForm] = useState({ name: "", sortOrder: 0 });
 
   const categories = useQuery({
     queryKey: ["categories"],
@@ -29,14 +28,15 @@ export default function CategoriesPage() {
     },
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["categories"] });
+  const refresh = async () => {
+    await Promise.all(["categories", "items", "item", "item-variants", "orders", "order", "review"].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
+  };
 
   const save = async () => {
     setError(null);
     if (!form.name.trim()) return;
     const body = {
       name: form.name.trim(),
-      trackingUrlTemplate: form.trackingUrlTemplate.trim() || null,
       sortOrder: form.sortOrder,
     };
     if (editingId) {
@@ -59,7 +59,7 @@ export default function CategoriesPage() {
     }
     setCreating(false);
     setEditingId(null);
-    setForm({ name: "", trackingUrlTemplate: "", sortOrder: 0 });
+    setForm({ name: "", sortOrder: 0 });
     await refresh();
   };
 
@@ -93,7 +93,6 @@ export default function CategoriesPage() {
     setCreating(false);
     setForm({
       name: category.name,
-      trackingUrlTemplate: category.trackingUrlTemplate ?? "",
       sortOrder: category.sortOrder,
     });
   };
@@ -101,7 +100,7 @@ export default function CategoriesPage() {
   const startCreate = () => {
     setCreating(true);
     setEditingId(null);
-    setForm({ name: "", trackingUrlTemplate: "", sortOrder: (categories.data?.length ?? 0) + 1 });
+    setForm({ name: "", sortOrder: (categories.data?.length ?? 0) + 1 });
   };
 
   const showForm = creating || editingId !== null;
@@ -140,18 +139,6 @@ export default function CategoriesPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500">
-                {t("categories.trackingTemplate")}
-              </label>
-              <input
-                value={form.trackingUrlTemplate}
-                onChange={(e) => setForm({ ...form, trackingUrlTemplate: e.target.value })}
-                placeholder="https://track.beartech.com/{number}"
-                className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5 font-mono text-xs"
-              />
-              <p className="mt-0.5 text-xs text-slate-400">{t("categories.templateHint")}</p>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500">
                 {t("categories.sortOrder")}
               </label>
               <input
@@ -179,7 +166,6 @@ export default function CategoriesPage() {
               <thead>
                 <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
                   <th className="px-4 py-2.5 font-semibold">{t("categories.name")}</th>
-                  <th className="px-3 py-2.5 font-semibold">{t("categories.trackingTemplate")}</th>
                   <th className="px-3 py-2.5 font-semibold">{t("categories.sortOrder")}</th>
                   <th className="px-3 py-2.5 font-semibold">{t("items.status")}</th>
                   <th className="px-3 py-2.5 font-semibold"></th>
@@ -189,9 +175,7 @@ export default function CategoriesPage() {
                 {categories.data.map((category) => (
                   <tr key={category.id} className="border-b border-ink/5 transition-colors last:border-0 hover:bg-pill">
                     <td className="px-4 py-2.5 font-medium text-ink">{category.name}</td>
-                    <td className="px-3 py-2.5 font-mono text-xs text-slate-500">
-                      {category.trackingUrlTemplate ?? "—"}
-                    </td>
+
                     <td className="px-3 py-2.5 font-mono text-xs">{category.sortOrder}</td>
                     <td className="px-3 py-2.5">
                       <button type="button" onClick={() => void toggleEnabled(category)}>

@@ -28,6 +28,7 @@ function contentSnapshot(item: ItemWithRelations) {
     name: item.name,
     description: item.description,
     category: item.category,
+    categoryId: item.categoryId,
     tags: item.tags,
     images: item.images,
     variants: item.variants.map((variant) => ({
@@ -48,15 +49,19 @@ export class ItemsService {
   ) {}
 
   /** Variant picker search: code, variant name, or parent item name (§8.3). */
-  async searchVariants(search?: string) {
+  async searchVariants(search?: string, warehouse?: string) {
     return this.prisma.itemVariant.findMany({
       where: {
         archivedAt: null,
+        item: { archivedAt: null },
+        ...(warehouse ? { stocks: { none: { warehouse, archivedAt: { not: null } } } } : {}),
         ...(search
           ? {
               OR: [
                 { itemCode: { contains: search, mode: 'insensitive' } },
                 { name: { contains: search, mode: 'insensitive' } },
+                { nameEn: { contains: search, mode: 'insensitive' } },
+                { item: { nameEn: { contains: search, mode: 'insensitive' } } },
                 { item: { name: { contains: search, mode: 'insensitive' } } },
               ],
             }
@@ -67,7 +72,8 @@ export class ItemsService {
         itemCode: true,
         name: true,
         images: true,
-        item: { select: { id: true, name: true } },
+        item: { select: { id: true, name: true, categoryId: true } },
+        stocks: { select: { warehouse: true, quantity: true, archivedAt: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -75,12 +81,13 @@ export class ItemsService {
   }
 
   async create(dto: CreateItemDto, userId: string): Promise<ItemWithRelations> {
+    const category = await this.resolveCategory(dto);
     const item = await this.prisma.item.create({
       data: {
         name: dto.name,
         nameEn: dto.nameEn ?? '',
         description: dto.description,
-        category: dto.category,
+        ...category,
         tags: dto.tags ?? [],
         images: (dto.images ?? undefined) as Prisma.InputJsonValue,
         createdBy: userId,
@@ -99,6 +106,18 @@ export class ItemsService {
       after: { name: item.name },
     });
     return item;
+  }
+
+  private async resolveCategory(dto: { categoryId?: string | null; category?: string }, existingCategoryId?: string | null) {
+    if (dto.categoryId === undefined && dto.category === undefined) return {};
+    if (dto.categoryId === null || dto.categoryId === '' || (dto.categoryId === undefined && !dto.category?.trim())) {
+      return { categoryId: null, category: null };
+    }
+    const category = await this.prisma.category.findUnique({
+      where: dto.categoryId ? { id: dto.categoryId } : { name: dto.category!.trim() },
+    });
+    if (!category || (!category.enabled && category.id !== existingCategoryId)) throw new BadRequestException('Select an enabled category from category management.');
+    return { categoryId: category.id, category: category.name };
   }
 
   /** Creates one ItemVariant row, retrying generated code collisions. */
@@ -238,13 +257,14 @@ export class ItemsService {
 
   async update(id: string, dto: UpdateItemDto, userId: string): Promise<ItemWithRelations> {
     const before = await this.get(id);
+    const category = await this.resolveCategory(dto, before.categoryId);
     const item = await this.prisma.item.update({
       where: { id },
       data: {
         name: dto.name,
         nameEn: dto.nameEn,
         description: dto.description,
-        category: dto.category,
+        ...category,
         tags: dto.tags,
         images: (dto.images ?? undefined) as Prisma.InputJsonValue | undefined,
       },

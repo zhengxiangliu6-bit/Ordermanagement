@@ -1,5 +1,6 @@
 const zh = {
   common: {
+    loadFailed: "加载失败，请重试",
     no: "否",
     yes: "是",
     loading: "加载中…",
@@ -208,6 +209,7 @@ const zh = {
     saveChanges: "保存修改",
   },
   orders: {
+    assignmentSaveFailed: "保存订单归属失败，请重试", warehouseStock: "库存：{{count}}", outOfStock: "缺货，补货后可打包",
     copyAction: "复制订单",
     copying: "复制中…",
     cancelAction: "取消订单",
@@ -551,6 +553,7 @@ const zh = {
     disabledInstead: "“{{name}}”已被订单引用，已改为停用。",
   },
   shippingRegions: {
+    warehouse: "关联仓库", warehouseRequired: "请选择已关联仓库的发货地区",
     title: "发货地区",
     intro: "维护未发货审核时可选的发货地区；订单引用后不可删除，会改为停用。",
     newMethod: "新建发货地区",

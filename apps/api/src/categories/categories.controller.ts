@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { RequirePermissions } from '../rbac/require-permissions.decorator';
+import { RequireAnyPermissions, RequirePermissions } from '../rbac/require-permissions.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -13,12 +13,6 @@ export class CategoryDto {
   @MinLength(1)
   @MaxLength(50)
   name!: string;
-
-  @ApiPropertyOptional({ description: 'Tracking-site template with {number} placeholder (R8).' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  trackingUrlTemplate?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -32,9 +26,11 @@ export class CategoryDto {
   sortOrder?: number;
 }
 
+export class UpdateCategoryDto extends PartialType(CategoryDto) {}
+
 /**
  * Product category management (M7 R1/R3): the second-level order
- * classification with an optional per-category tracking-site template.
+ * classification shared with the system product catalog.
  */
 @ApiTags('categories')
 @Controller('categories')
@@ -45,7 +41,7 @@ export class CategoriesController {
   ) {}
 
   @Get()
-  @RequirePermissions('categories:read')
+  @RequireAnyPermissions('categories:read', 'items:read', 'items:create', 'items:update', 'orders:read', 'orders:review', 'orders:create-manual')
   @ApiOperation({ summary: 'List categories (enabled first, then sortOrder).' })
   list() {
     return this.prisma.category.findMany({
@@ -60,7 +56,6 @@ export class CategoriesController {
     const category = await this.prisma.category.create({
       data: {
         name: dto.name.trim(),
-        trackingUrlTemplate: dto.trackingUrlTemplate?.trim() || null,
         enabled: dto.enabled ?? true,
         sortOrder: dto.sortOrder ?? 0,
       },
@@ -80,21 +75,22 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Update a category.' })
   async update(
     @Param('id') id: string,
-    @Body() dto: Partial<CategoryDto>,
+    @Body() dto: UpdateCategoryDto,
     @CurrentUser() user: AuthUser,
   ) {
     const before = await this.prisma.category.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Category not found.');
-    const category = await this.prisma.category.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.trackingUrlTemplate !== undefined
-          ? { trackingUrlTemplate: dto.trackingUrlTemplate?.trim() || null }
-          : {}),
-        ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
-        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
-      },
+    const category = await this.prisma.$transaction(async (tx) => {
+      const category = await tx.category.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+          ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
+          ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        },
+      });
+      if (dto.name !== undefined) await tx.item.updateMany({ where: { categoryId: id }, data: { category: category.name } });
+      return category;
     });
     await this.audit.record({
       actorId: user.id,
@@ -116,7 +112,8 @@ export class CategoriesController {
     const before = await this.prisma.category.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Category not found.');
     const orderCount = await this.prisma.order.count({ where: { categoryId: id } });
-    if (orderCount > 0) {
+    const itemCount = await this.prisma.item.count({ where: { categoryId: id } });
+    if (orderCount > 0 || itemCount > 0) {
       // Historical orders reference it: refuse, disable instead.
       await this.prisma.category.update({ where: { id }, data: { enabled: false } });
       await this.audit.record({
@@ -127,7 +124,7 @@ export class CategoriesController {
         before: { enabled: true },
         after: { enabled: false, note: `disabled instead of delete (${orderCount} orders reference it)` },
       });
-      return { ok: true, disabled: true, orderCount };
+      return { ok: true, disabled: true, orderCount, itemCount };
     }
     await this.prisma.category.delete({ where: { id } });
     await this.audit.record({

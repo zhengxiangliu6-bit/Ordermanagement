@@ -559,15 +559,26 @@ export class InventoryService {
    * Deducts the order requirements (conditional decrements inside a
    * transaction). Throws INSUFFICIENT_STOCK when stock is not enough.
    */
-  async deductForOrder(orderId: string, warehouse: string, userId: string, note?: string) {
-    const order = await this.prisma.order.findUnique({
+  async deductForOrder(orderId: string, warehouse: string, userId: string, note?: string, tx?: Prisma.TransactionClient): Promise<{ deducted: boolean; items: number }> {
+    if (!tx) return this.prisma.$transaction(client => this.deductForOrder(orderId, warehouse, userId, note, client));
+    const db = tx;
+    const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
-        lines: { include: { itemVariant: true } },
-        addOns: { include: { itemVariant: true } },
+        lines: { include: { itemVariant: { include: { item: true, stocks: true } } } },
+        addOns: { include: { itemVariant: { include: { item: true, stocks: true } } } },
       },
     });
     if (!order) throw new NotFoundException('Order not found.');
+    if (order.stockDeductedAt) throw new ConflictException('Stock has already been deducted for this order.');
+    if (!INVENTORY_WAREHOUSES.includes(warehouse as InventoryWarehouse)) throw new BadRequestException('An inventory warehouse is required.');
+    for (const line of [...order.lines, ...order.addOns]) {
+      const variant = line.itemVariant;
+      if (!variant) throw new ConflictException('Link every order product and gift to a system product before packing.');
+      if (variant.archivedAt || variant.item.archivedAt || variant.stocks.some(stock => stock.warehouse === warehouse && stock.archivedAt)) {
+        throw new ConflictException('An order product is archived in this warehouse.');
+      }
+    }
 
     const required = new Map<string, number>();
     const collect = (variantId: string | null | undefined, qty: number) => {
@@ -583,13 +594,13 @@ export class InventoryService {
     if (required.size === 0) return { deducted: false, items: 0 };
 
     // Pre-check for a precise shortage report: which items block packing.
-    const shortageVariants = await this.prisma.itemVariant.findMany({
+    const shortageVariants = await db.itemVariant.findMany({
       where: { id: { in: [...required.keys()] } },
       include: { item: { select: { name: true } } },
     });
     const shortages: Array<{ title: string; current: number; required: number }> = [];
     for (const variant of shortageVariants) {
-      const stock = await this.prisma.inventoryStock.findUnique({
+      const stock = await db.inventoryStock.findUnique({
         where: {
           itemVariantId_warehouse: { itemVariantId: variant.id, warehouse },
         },
@@ -612,15 +623,15 @@ export class InventoryService {
       });
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    {
       for (const [itemVariantId, qty] of required) {
-        await tx.inventoryStock.upsert({
+        await db.inventoryStock.upsert({
           where: { itemVariantId_warehouse: { itemVariantId, warehouse } },
           create: { itemVariantId, warehouse, quantity: 0 },
           update: {},
         });
-        const updated = await tx.inventoryStock.updateMany({
-          where: { itemVariantId, warehouse, quantity: { gte: qty } },
+        const updated = await db.inventoryStock.updateMany({
+          where: { itemVariantId, warehouse, archivedAt: null, quantity: { gte: qty } },
           data: { quantity: { decrement: qty } },
         });
         if (updated.count === 0) {
@@ -629,40 +640,23 @@ export class InventoryService {
             message: '库存不足，无法确认打包。',
           });
         }
-        await tx.inventoryMovement.create({
+        const balance = await db.inventoryStock.findUniqueOrThrow({ where: { itemVariantId_warehouse: { itemVariantId, warehouse } } });
+        await db.inventoryMovement.create({
           data: {
             itemVariantId,
             warehouse,
             type: 'outbound',
             quantity: -qty,
-            resultQuantity: 0, // filled below after reading final value
+            resultQuantity: balance.quantity,
             orderId,
             actorId: userId,
             note: [`${order.displayNumber}-出库`, note?.trim()].filter(Boolean).join(' · '),
           },
         });
       }
-      // Fill result quantities.
-      for (const [itemVariantId] of required) {
-        const stock = await tx.inventoryStock.findUnique({
-          where: { itemVariantId_warehouse: { itemVariantId, warehouse } },
-        });
-        if (stock) {
-          await tx.inventoryMovement.updateMany({
-            where: {
-              itemVariantId,
-              warehouse,
-              orderId,
-              type: 'outbound',
-              resultQuantity: 0,
-            },
-            data: { resultQuantity: stock.quantity },
-          });
-        }
-      }
-    });
+    }
 
-    await this.prisma.order.update({
+    await db.order.update({
       where: { id: orderId },
       data: { stockDeductedAt: new Date(), stockWarehouse: warehouse },
     });
@@ -670,8 +664,10 @@ export class InventoryService {
   }
 
   /** Returns previously deducted stock (order cancellation). */
-  async returnForOrder(orderId: string, userId: string, note?: string) {
-    const order = await this.prisma.order.findUnique({
+  async returnForOrder(orderId: string, userId: string, note?: string, tx?: Prisma.TransactionClient): Promise<{ returned: boolean }> {
+    if (!tx) return this.prisma.$transaction(client => this.returnForOrder(orderId, userId, note, client));
+    const db = tx;
+    const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
         lines: { include: { itemVariant: true } },
@@ -681,6 +677,9 @@ export class InventoryService {
     if (!order) throw new NotFoundException('Order not found.');
     const warehouse = order.stockWarehouse;
     if (!order.stockDeductedAt || !warehouse) return { returned: false };
+    const claimed = await db.order.updateMany({ where: { id: orderId, stockDeductedAt: order.stockDeductedAt, stockWarehouse: warehouse },
+      data: { stockDeductedAt: null, stockWarehouse: null } });
+    if (!claimed.count) return { returned: false };
 
     const required = new Map<string, number>();
     const collect = (variantId: string | null | undefined, qty: number) => {
@@ -694,39 +693,35 @@ export class InventoryService {
       collect(addOn.itemVariantId, addOn.quantity);
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    {
       for (const [itemVariantId, qty] of required) {
-        await tx.inventoryStock.upsert({
+        const stock = await db.inventoryStock.upsert({
           where: { itemVariantId_warehouse: { itemVariantId, warehouse } },
           create: { itemVariantId, warehouse, quantity: qty },
           update: { quantity: { increment: qty } },
         });
-        await tx.inventoryMovement.create({
+        await db.inventoryMovement.create({
           data: {
             itemVariantId,
             warehouse,
             type: 'return',
             quantity: qty,
-            resultQuantity: 0,
+            resultQuantity: stock.quantity,
             orderId,
             actorId: userId,
             note: [`${order.displayNumber}-退回入库`, note?.trim()].filter(Boolean).join(' · '),
           },
         });
       }
-    });
+    }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: { stockDeductedAt: null, stockWarehouse: null },
-    });
     await this.audit.record({
       actorId: userId,
       action: 'inventory.returned',
       objectType: 'Order',
       objectId: orderId,
       after: { warehouse, items: required.size },
-    });
-    return { returned: true, items: required.size };
+    }, tx);
+    return { returned: true };
   }
 }

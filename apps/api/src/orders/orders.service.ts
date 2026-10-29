@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { generateOrderNumber } from './order-number';
 import { InventoryService } from '../inventory/inventory.service';
+import { categoryForVariants, requireOrderRegion, resolveOrderVariant } from './order-product-links';
 import { customerIdentity } from './customer-normalize';
 import {
   CreateManualOrderDto,
@@ -93,15 +94,22 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found.');
     if (order.deletedAt) throw new ConflictException('Order is deleted.');
 
+    if (dto.shippingRegionId !== undefined && dto.shippingRegionId !== order.shippingRegionId) {
+      if (order.stockDeductedAt || !['review', 'packing'].includes(order.stage)) {
+        throw new ConflictException('Return the order to review before changing its shipping region.');
+      }
+      if (!dto.shippingRegionId) throw new BadRequestException('The shipping region cannot be cleared.');
+      const region = await requireOrderRegion(this.prisma, dto.shippingRegionId);
+      const lines = await this.prisma.orderLine.findMany({ where: { orderId }, select: { itemVariantId: true } });
+      const addOns = await this.prisma.orderAddOn.findMany({ where: { orderId }, select: { itemVariantId: true } });
+      for (const line of [...lines, ...addOns]) if (line.itemVariantId) await resolveOrderVariant(this.prisma, line.itemVariantId, region.warehouse);
+    }
     if (dto.categoryId) {
       const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
-      if (!category) throw new NotFoundException('Category not found.');
+      if (!category?.enabled) throw new NotFoundException('Enabled category not found.');
     }
     if (dto.shippingRegionId) {
-      const region = await this.prisma.shippingRegion.findUnique({
-        where: { id: dto.shippingRegionId },
-      });
-      if (!region) throw new NotFoundException('Shipping region not found.');
+      await requireOrderRegion(this.prisma, dto.shippingRegionId);
     }
     if (dto.shippingMethodId) {
       const method = await this.prisma.shippingMethod.findUnique({
@@ -110,9 +118,10 @@ export class OrdersService {
       if (!method) throw new NotFoundException('Shipping method not found.');
     }
 
-    await this.prisma.order.update({
-      where: { id: orderId },
+    const updated = await this.prisma.order.updateMany({
+      where: { id: orderId, version: order.version, stage: order.stage, stockDeductedAt: order.stockDeductedAt },
       data: {
+        version: { increment: 1 },
         ...(dto.shippingRegionId !== undefined
           ? { shippingRegionId: dto.shippingRegionId }
           : {}),
@@ -122,8 +131,9 @@ export class OrdersService {
         ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
       },
     });
-    // Audit via the shared service in the M7 audit pass (TODO).
-    void userId; void order;
+    if (!updated.count) throw new ConflictException('Order changed; refresh before updating its assignment.');
+    await this.audit.record({ actorId: userId, action: 'order.assignment_updated', objectType: 'Order', objectId: orderId,
+      before: { shippingRegionId: order.shippingRegionId, categoryId: order.categoryId }, after: dto });
     return this.get(orderId);
   }
 
@@ -263,21 +273,21 @@ export class OrdersService {
   ): Promise<OrderDetail> {
     // Resolve variant links and their applicable content versions first
     // (§10.2: a linked Item or Listing pins its content-version reference).
-    const resolvedLines = await Promise.all(
-      dto.lines.map(async (line) => ({
-        title: line.title,
-        description: line.description,
-        quantity: line.quantity ?? 1,
-        itemVariantId: line.itemVariantId,
-        listingVariantId: line.listingVariantId,
-        itemContentVersionId: line.itemVariantId
-          ? await this.latestItemVersionId(line.itemVariantId)
-          : null,
-        listingContentVersionId: line.listingVariantId
-          ? await this.latestListingVersionId(line.listingVariantId)
-          : null,
-      })),
-    );
+    const region = dto.shippingRegionId ? await requireOrderRegion(this.prisma, dto.shippingRegionId) : null;
+    const resolvedLines = await Promise.all(dto.lines.map(async (line) => {
+      const linked = line.itemVariantId ? await resolveOrderVariant(this.prisma, line.itemVariantId, region?.warehouse) : null;
+      if (line.listingVariantId && linked) {
+        const listing = await this.prisma.listingVariant.findUnique({ where: { id: line.listingVariantId } });
+        if (listing?.itemVariantId !== line.itemVariantId) throw new BadRequestException('Platform and system product references do not match.');
+      }
+      return {
+        title: line.title, description: line.description, quantity: line.quantity ?? 1,
+        itemVariantId: line.itemVariantId, listingVariantId: line.listingVariantId,
+        itemContentVersionId: linked?.itemContentVersionId ?? null,
+        listingContentVersionId: line.listingVariantId ? await this.latestListingVersionId(line.listingVariantId) : null,
+      };
+    }));
+    const categoryId = await categoryForVariants(this.prisma, resolvedLines.map(line => line.itemVariantId));
 
     const order = await this.prisma.$transaction(async (tx) => {
       let created!: { id: string };
@@ -287,6 +297,8 @@ export class OrdersService {
           created = await tx.order.create({
             data: {
               source: 'manual',
+              shippingRegionId: region?.id,
+              categoryId,
               displayNumber: displayNumber ?? generateOrderNumber(),
               stage: 'review',
               stageUpdatedAt: new Date(),
@@ -353,6 +365,8 @@ export class OrdersService {
         subjectId: order.id,
         payload: {
           existingOrder: true,
+          shippingRegionId: region?.id ?? null,
+          categoryId,
           order: {
             externalOrderId: null,
             displayNumber: order.displayNumber,
@@ -526,116 +540,131 @@ export class OrdersService {
   /** Edits the ordered product lines while the order is in unfulfilled review. */
   async reviewItems(
     orderId: string,
-    dto: { lines: Array<{ id?: string; title: string; quantity: number }> },
+    dto: { lines: Array<{ id?: string; title: string; quantity: number; itemVariantId: string }> },
     userId: string,
   ): Promise<OrderDetail> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { lines: { orderBy: { createdAt: 'asc' } } },
-    });
-    if (!order) throw new NotFoundException('Order not found.');
-    if (order.stage !== 'review') {
-      throw new ConflictException('Order items can only be edited during review.');
-    }
-    if (dto.lines.length === 0) {
-      throw new BadRequestException('An order needs at least one product line.');
-    }
-
-    const existing = new Map(order.lines.map((line) => [line.id, line]));
-    for (const line of dto.lines) {
-      if (line.id && !existing.has(line.id)) {
-        throw new BadRequestException('Unknown order line.');
+    return this.prisma.$transaction(async tx => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { lines: { orderBy: { createdAt: 'asc' } } },
+      });
+      if (!order) throw new NotFoundException('Order not found.');
+      if (order.stage !== 'review' || order.stockDeductedAt) {
+        throw new ConflictException('Order items can only be edited during review.');
       }
-    }
-    const keepIds = new Set(
-      dto.lines.map((line) => line.id).filter((id): id is string => Boolean(id)),
-    );
-    const before = order.lines.map((line) => ({
-      id: line.id,
-      title: line.title,
-      quantity: line.quantity,
-    }));
+      if (dto.lines.length === 0) {
+        throw new BadRequestException('An order needs at least one product line.');
+      }
 
-    await this.prisma.$transaction(async (tx) => {
+      const existing = new Map(order.lines.map((line) => [line.id, line]));
       for (const line of dto.lines) {
-        const title = line.title.trim();
-        if (line.id) {
-          await tx.orderLine.update({
-            where: { id: line.id },
-            data: { title, quantity: line.quantity },
-          });
-        } else {
-          await tx.orderLine.create({
-            data: { orderId, title, quantity: line.quantity },
+        if (line.id && !existing.has(line.id)) {
+          throw new BadRequestException('Unknown order line.');
+        }
+      }
+      const keepIds = new Set(
+        dto.lines.map((line) => line.id).filter((id): id is string => Boolean(id)),
+      );
+      const before = order.lines.map((line) => ({
+        id: line.id,
+        title: line.title,
+        quantity: line.quantity,
+        itemVariantId: line.itemVariantId,
+        itemContentVersionId: line.itemContentVersionId,
+      }));
+
+      {
+        const claimed = await tx.order.updateMany({ where: { id: orderId, stage: 'review', stockDeductedAt: null, version: order.version }, data: { version: { increment: 1 } } });
+        if (!claimed.count) throw new ConflictException('Order changed; refresh before editing its products.');
+        for (const line of dto.lines) {
+          const title = line.title.trim();
+          const region = order.shippingRegionId ? await requireOrderRegion(tx, order.shippingRegionId) : null;
+          const linked = await resolveOrderVariant(tx, line.itemVariantId, region?.warehouse);
+          const previous = line.id ? existing.get(line.id) : null;
+          const contentVersionId = previous?.itemVariantId === linked.variant.id ? previous.itemContentVersionId ?? linked.itemContentVersionId : linked.itemContentVersionId;
+          const data = { title, quantity: line.quantity, itemVariantId: linked.variant.id, itemContentVersionId: contentVersionId,
+            ...(previous && previous.itemVariantId !== linked.variant.id ? { listingVariantId: null, listingContentVersionId: null } : {}) };
+          if (line.id) {
+            await tx.orderLine.update({
+              where: { id: line.id },
+              data,
+            });
+          } else {
+            await tx.orderLine.create({
+              data: { orderId, ...data },
+            });
+          }
+        }
+        const deleteIds = order.lines
+          .filter((line) => !keepIds.has(line.id))
+          .map((line) => line.id);
+        if (deleteIds.length > 0) {
+          await tx.orderLine.deleteMany({ where: { id: { in: deleteIds } } });
+        }
+      }
+
+      const inferredCategory = await categoryForVariants(tx, dto.lines.map(line => line.itemVariantId));
+      if (inferredCategory) await tx.order.update({ where: { id: orderId }, data: { categoryId: inferredCategory } });
+      const after = await tx.orderLine.findMany({
+        where: { orderId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, title: true, quantity: true, itemVariantId: true, itemContentVersionId: true },
+      });
+      await tx.orderRevision.create({
+        data: {
+          orderId,
+          reason: 'Order items edited during review',
+          before: before as Prisma.InputJsonValue,
+          after: after as Prisma.InputJsonValue,
+          userId,
+        },
+      });
+      await tx.orderStageEvent.create({
+        data: {
+          orderId,
+          fromStage: 'review',
+          toStage: 'review',
+          action: 'items_edited',
+          actorId: userId,
+          metadata: { lines: after.length },
+        },
+      });
+
+      const records = await tx.reviewRecord.findMany({
+        where: { type: 'new_order', subjectId: orderId, status: 'pending' },
+      });
+      for (const record of records) {
+        const payload = (record.payload ?? {}) as { order?: Record<string, unknown> };
+        if (payload.order) {
+          await tx.reviewRecord.update({
+            where: { id: record.id },
+            data: {
+              payload: {
+                ...payload,
+                ...(inferredCategory ? { categoryId: inferredCategory } : {}),
+                order: {
+                  ...payload.order,
+                  lines: after.map((line) => ({
+                    title: line.title ?? '',
+                    quantity: line.quantity,
+                  })),
+                },
+              } as Prisma.InputJsonValue,
+            },
           });
         }
       }
-      const deleteIds = order.lines
-        .filter((line) => !keepIds.has(line.id))
-        .map((line) => line.id);
-      if (deleteIds.length > 0) {
-        await tx.orderLine.deleteMany({ where: { id: { in: deleteIds } } });
-      }
-    });
 
-    const after = await this.prisma.orderLine.findMany({
-      where: { orderId },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, title: true, quantity: true },
-    });
-    await this.prisma.orderRevision.create({
-      data: {
-        orderId,
-        reason: 'Order items edited during review',
+      await this.audit.record({
+        actorId: userId,
+        action: 'order.items_edited_in_review',
+        objectType: 'Order',
+        objectId: orderId,
         before: before as Prisma.InputJsonValue,
         after: after as Prisma.InputJsonValue,
-        userId,
-      },
+      }, tx);
+      return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: orderDetailInclude });
     });
-    await this.prisma.orderStageEvent.create({
-      data: {
-        orderId,
-        fromStage: 'review',
-        toStage: 'review',
-        action: 'items_edited',
-        actorId: userId,
-        metadata: { lines: after.length },
-      },
-    });
-
-    const records = await this.prisma.reviewRecord.findMany({
-      where: { type: 'new_order', subjectId: orderId, status: 'pending' },
-    });
-    for (const record of records) {
-      const payload = (record.payload ?? {}) as { order?: Record<string, unknown> };
-      if (payload.order) {
-        await this.prisma.reviewRecord.update({
-          where: { id: record.id },
-          data: {
-            payload: {
-              ...payload,
-              order: {
-                ...payload.order,
-                lines: after.map((line) => ({
-                  title: line.title ?? '',
-                  quantity: line.quantity,
-                })),
-              },
-            } as Prisma.InputJsonValue,
-          },
-        });
-      }
-    }
-
-    await this.audit.record({
-      actorId: userId,
-      action: 'order.items_edited_in_review',
-      objectType: 'Order',
-      objectId: orderId,
-      before: before as Prisma.InputJsonValue,
-      after: after as Prisma.InputJsonValue,
-    });
-    return this.get(orderId);
   }
 
   /** Edits the customer snapshot while the order is in unfulfilled review. */
@@ -960,29 +989,6 @@ export class OrdersService {
         itemCode: line.itemVariant?.itemCode ?? null,
       })),
     };
-  }
-
-  /** Latest item content version for the variant's item (§9: shared versions). */
-  private async latestItemVersionId(itemVariantId: string): Promise<string | null> {
-    const variant = await this.prisma.itemVariant
-      .findUnique({
-        where: { id: itemVariantId },
-        select: { itemId: true },
-      })
-      .catch((error: Prisma.PrismaClientKnownRequestError) => {
-        // P2023: the reference is not a valid variant id (e.g. a pasted code).
-        if (error.code === 'P2023') {
-          throw new NotFoundException(`Item variant not found: ${itemVariantId}`);
-        }
-        throw error;
-      });
-    if (!variant) throw new NotFoundException(`Item variant not found: ${itemVariantId}`);
-    const version = await this.prisma.itemContentVersion.findFirst({
-      where: { itemId: variant.itemId },
-      orderBy: { effectiveAt: 'desc' },
-      select: { id: true },
-    });
-    return version?.id ?? null;
   }
 
   private async latestListingVersionId(listingVariantId: string): Promise<string | null> {

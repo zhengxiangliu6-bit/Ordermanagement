@@ -4,11 +4,12 @@ import {
   Delete,
   Get,
   NotFoundException,
+  ConflictException,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -17,10 +18,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
 export class ShippingRegionDto {
-  @ApiPropertyOptional({ enum: ['china', 'canada'], description: 'Warehouse stock is deducted from.' })
-  @IsOptional()
+  @ApiProperty({ enum: ['china', 'canada'], description: 'Warehouse stock is deducted from.' })
   @IsIn(['china', 'canada'])
-  warehouse?: string;
+  warehouse!: string;
 
   @ApiProperty({ minLength: 1, maxLength: 50 })
   @IsString()
@@ -39,6 +39,8 @@ export class ShippingRegionDto {
   @Min(0)
   sortOrder?: number;
 }
+
+export class UpdateShippingRegionDto extends PartialType(ShippingRegionDto) {}
 
 /** Configurable shipping regions used at unfulfilled-order review (M7b). */
 @ApiTags('shipping-regions')
@@ -85,11 +87,14 @@ export class ShippingRegionsController {
   @ApiOperation({ summary: 'Update a shipping region.' })
   async update(
     @Param('id') id: string,
-    @Body() dto: Partial<ShippingRegionDto>,
+    @Body() dto: UpdateShippingRegionDto,
     @CurrentUser() user: AuthUser,
   ) {
     const before = await this.prisma.shippingRegion.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Shipping region not found.');
+    if (dto.warehouse && before.warehouse && before.warehouse !== dto.warehouse && await this.prisma.order.count({ where: { shippingRegionId: id } })) {
+      throw new ConflictException('This region is already used by orders; create a new region instead of changing its warehouse.');
+    }
     const region = await this.prisma.shippingRegion.update({
       where: { id },
       data: {

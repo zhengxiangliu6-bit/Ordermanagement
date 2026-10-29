@@ -96,58 +96,67 @@ export class MappingService {
     let itemsCreated = 0;
     let variantsMapped = 0;
     for (const variants of groups.values()) {
-      const item = await this.prisma.item.create({
-        data: {
-          name: variants[0].listing.snapshot.title ?? variants[0].externalVariantId,
-          createdBy: userId,
-        },
-      });
-      itemsCreated += 1;
-      for (const variant of variants) {
-        const created = await this.prisma.itemVariant.create({
+      await this.prisma.$transaction(async tx => {
+        const item = await tx.item.create({
           data: {
-            itemId: item.id,
-            itemCode: generateItemCode(),
-            name: variant.externalTitle ?? variant.externalSku ?? variant.externalVariantId,
-            optionValues: (variant.optionValues ?? undefined) as never,
+            name: variants[0].listing.snapshot.title ?? variants[0].externalVariantId,
+            createdBy: userId,
           },
         });
-        await this.prisma.listingVariant.update({
-          where: { id: variant.id },
-          data: { itemVariantId: created.id },
+        itemsCreated += 1;
+        for (const variant of variants) {
+          const created = await tx.itemVariant.create({
+            data: {
+              itemId: item.id,
+              itemCode: generateItemCode(),
+              name: variant.externalTitle ?? variant.externalSku ?? variant.externalVariantId,
+              optionValues: (variant.optionValues ?? undefined) as never,
+            },
+          });
+          const bound = await tx.listingVariant.updateMany({
+            where: { id: variant.id, itemVariantId: null },
+            data: { itemVariantId: created.id },
+          });
+          if (!bound.count) throw new ConflictException('Mapping changed; refresh the preview.');
+          variantsMapped += 1;
+        }
+        // Every item carries a content-version snapshot (§9.2): record one
+        // after the generated variants exist.
+        const reloaded = await tx.item.findUniqueOrThrow({
+          where: { id: item.id },
+          include: { variants: true },
         });
-        variantsMapped += 1;
-      }
-      // Every item carries a content-version snapshot (§9.2): record one
-      // after the generated variants exist.
-      const reloaded = await this.prisma.item.findUniqueOrThrow({
-        where: { id: item.id },
-        include: { variants: true },
-      });
-      await this.prisma.itemContentVersion.create({
-        data: {
-          itemId: item.id,
-          snapshot: {
-            name: reloaded.name,
-            description: reloaded.description,
-            category: reloaded.category,
-            tags: reloaded.tags,
-            images: reloaded.images,
-            variants: reloaded.variants.map((variant) => ({
-              itemCode: variant.itemCode,
-              name: variant.name,
-              optionValues: variant.optionValues,
-            })),
-          } as never,
-          createdBy: userId,
-        },
-      });
-      await this.audit.record({
-        actorId: userId,
-        action: 'mapping.auto_created',
-        objectType: 'Item',
-        objectId: item.id,
-        after: { name: item.name, variants: variants.length },
+        const version = await tx.itemContentVersion.create({
+          data: {
+            itemId: item.id,
+            snapshot: {
+              name: reloaded.name,
+              description: reloaded.description,
+              category: reloaded.category,
+              tags: reloaded.tags,
+              images: reloaded.images,
+              variants: reloaded.variants.map((variant) => ({
+                itemCode: variant.itemCode,
+                name: variant.name,
+                optionValues: variant.optionValues,
+              })),
+            } as never,
+            createdBy: userId,
+          },
+        });
+        for (const variant of variants) {
+          const linked = await tx.listingVariant.findUniqueOrThrow({ where: { id: variant.id } });
+          await tx.orderLine.updateMany({ where: { listingVariantId: variant.id, itemVariantId: null,
+            order: { stage: { in: ['review', 'packing'] }, stockDeductedAt: null } },
+            data: { itemVariantId: linked.itemVariantId, itemContentVersionId: version.id } });
+        }
+        await this.audit.record({
+          actorId: userId,
+          action: 'mapping.auto_created',
+          objectType: 'Item',
+          objectId: item.id,
+          after: { name: item.name, variants: variants.length },
+        }, tx);
       });
     }
     return { dryRun: false, itemsToCreate: [], itemsCreated, variantsMapped };
@@ -262,6 +271,8 @@ export class MappingService {
         where: { id: itemVariantId },
       });
       if (!itemVariant) throw new NotFoundException('Item variant not found.');
+      const item = await tx.item.findUniqueOrThrow({ where: { id: itemVariant.itemId } });
+      if (itemVariant.archivedAt || item.archivedAt) throw new ConflictException('Cannot map an archived system product.');
 
       await tx.listingVariant.update({
         where: { id: listingVariantId },
@@ -271,7 +282,7 @@ export class MappingService {
       // Backfill: every unresolved order line for this listing variant
       // receives the item identity plus the applicable content version (§8.4).
       const unresolved = await tx.orderLine.findMany({
-        where: { listingVariantId, itemVariantId: null },
+        where: { listingVariantId, itemVariantId: null, order: { stage: { in: ['review', 'packing'] }, stockDeductedAt: null } },
         select: { id: true },
       });
       const version = await tx.itemContentVersion.findFirst({
@@ -279,10 +290,10 @@ export class MappingService {
         orderBy: { effectiveAt: 'desc' },
         select: { id: true },
       });
-      if (unresolved.length > 0 && version) {
+      if (unresolved.length > 0) {
         await tx.orderLine.updateMany({
           where: { id: { in: unresolved.map((line) => line.id) } },
-          data: { itemVariantId, itemContentVersionId: version.id },
+          data: { itemVariantId, itemContentVersionId: version?.id ?? null },
         });
       }
 
@@ -296,7 +307,7 @@ export class MappingService {
           itemCode: itemVariant.itemCode,
           backfilledLines: unresolved.length,
         },
-      });
+      }, tx);
       return { ok: true, backfilledLines: unresolved.length };
     });
   }

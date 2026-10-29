@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { categoryForVariants, requireOrderRegion, resolveOrderVariant } from '../orders/order-product-links';
 import { Prisma } from '@prisma/client';
 import { hasPermissions } from '@om/shared';
 import { normalizeFulfillmentStatus } from '../orders/fulfillment';
@@ -135,8 +136,11 @@ export class ReviewService {
                 },
               });
             }
+            const current = record.subjectId ? await this.prisma.order.findUnique({ where: { id: record.subjectId }, include: { lines: { select: { itemVariantId: true } } } }) : null;
+            const categoryId = current?.categoryId ?? (current ? await categoryForVariants(this.prisma, current.lines.map(line => line.itemVariantId)) : null);
             return {
               ...sanitizeShipmentPayload(record, viewerPermissions),
+              payload: { ...(record.payload as Record<string, unknown>), ...(current ? { shippingRegionId: current.shippingRegionId, categoryId } : {}) },
               priorOrderCount,
             };
           }),
@@ -328,79 +332,91 @@ export class ReviewService {
     userId: string,
     assignment?: { shippingRegionId?: string; categoryId?: string | null; note?: string },
   ): Promise<void> {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found.');
+    await this.prisma.$transaction(async tx => {
+      const order = await tx.order.findUnique({ where: { id: orderId } });
+      if (!order) throw new NotFoundException('Order not found.');
 
-    const regionId = assignment?.shippingRegionId ?? order.shippingRegionId;
-    const categoryId = assignment?.categoryId ?? order.categoryId;
-    if (!regionId || !categoryId) {
-      throw new BadRequestException(
-        'Select a shipping region and a product category before approving.',
+      const regionId = assignment?.shippingRegionId ?? order.shippingRegionId;
+      const lines = await tx.orderLine.findMany({ where: { orderId }, select: { itemVariantId: true } });
+      const categoryId = assignment?.categoryId ?? order.categoryId ?? await categoryForVariants(tx, lines.map(line => line.itemVariantId));
+      if (!regionId || !categoryId) {
+        throw new BadRequestException(
+          'Select a shipping region and a product category before approving.',
+        );
+      }
+
+      const region = await requireOrderRegion(tx, regionId);
+      const category = await tx.category.findUnique({ where: { id: categoryId } });
+      if (!category?.enabled) throw new BadRequestException('Select an enabled category.');
+      for (const line of lines) {
+        if (line.itemVariantId) await resolveOrderVariant(tx, line.itemVariantId, region.warehouse);
+      }
+
+      const hasAssignment = Boolean(
+        assignment &&
+          (assignment.shippingRegionId ||
+            assignment.categoryId !== undefined ||
+            assignment.note),
       );
-    }
-
-    const hasAssignment = Boolean(
-      assignment &&
-        (assignment.shippingRegionId ||
-          assignment.categoryId !== undefined ||
-          assignment.note),
-    );
-    if (hasAssignment && assignment) {
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          ...(assignment.shippingRegionId
-            ? { shippingRegionId: assignment.shippingRegionId }
-            : {}),
-          ...(assignment.categoryId !== undefined && assignment.categoryId !== null
-            ? { categoryId: assignment.categoryId }
-            : {}),
-        },
-      });
-      if (assignment.note) {
-        await this.prisma.note.create({
+      if (hasAssignment && assignment) {
+        await tx.order.update({
+          where: { id: orderId },
           data: {
-            ownerType: 'order',
-            ownerId: orderId,
-            // The relation column drives order.notes; ownerType/id alone is
-            // not enough (the detail view reads the relation).
-            orderOwnerId: orderId,
-            body: `[Review] ${assignment.note}`,
-            createdBy: userId,
+            ...(assignment.shippingRegionId
+              ? { shippingRegionId: assignment.shippingRegionId }
+              : {}),
+            ...(assignment.categoryId !== undefined && assignment.categoryId !== null
+              ? { categoryId: assignment.categoryId }
+              : {}),
           },
         });
+        if (assignment.note) {
+          await tx.note.create({
+            data: {
+              ownerType: 'order',
+              ownerId: orderId,
+              // The relation column drives order.notes; ownerType/id alone is
+              // not enough (the detail view reads the relation).
+              orderOwnerId: orderId,
+              body: `[Review] ${assignment.note}`,
+              createdBy: userId,
+            },
+          });
+        }
       }
-    }
 
-    // Approval moves the order into the packing queue. The conditional
-    // update makes concurrent approvals safe (only one wins).
-    const claimed = await this.prisma.order.updateMany({
-      where: { id: orderId, stage: 'review' },
-      data: {
-        stage: 'packing',
-        stageUpdatedAt: new Date(),
-        stageUpdatedBy: userId,
-        version: { increment: 1 },
-      },
-    });
-    if (claimed.count === 0) {
-      throw new ConflictException(
-        'This order was already moved out of review; refresh the queue.',
-      );
-    }
-    await this.prisma.orderStageEvent.create({
-      data: {
-        orderId,
-        fromStage: 'review',
-        toStage: 'packing',
-        action: 'reviewed',
-        actorId: userId,
-        note: assignment?.note ?? null,
-        metadata: {
-          shippingRegionId: assignment?.shippingRegionId ?? null,
-          categoryId: assignment?.categoryId ?? null,
+      // Approval moves the order into the packing queue. The conditional
+      // update makes concurrent approvals safe (only one wins).
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, stage: 'review', version: order.version },
+        data: {
+          stage: 'packing',
+          shippingRegionId: regionId,
+          categoryId,
+          stageUpdatedAt: new Date(),
+          stageUpdatedBy: userId,
+          version: { increment: 1 },
         },
-      },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(
+          'This order was already moved out of review; refresh the queue.',
+        );
+      }
+      await tx.orderStageEvent.create({
+        data: {
+          orderId,
+          fromStage: 'review',
+          toStage: 'packing',
+          action: 'reviewed',
+          actorId: userId,
+          note: assignment?.note ?? null,
+          metadata: {
+            shippingRegionId: assignment?.shippingRegionId ?? null,
+            categoryId: assignment?.categoryId ?? null,
+          },
+        },
+      });
     });
   }
 

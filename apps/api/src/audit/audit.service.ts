@@ -22,8 +22,8 @@ export interface AuditEntry {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(entry: AuditEntry): Promise<void> {
-    await this.prisma.auditEvent.create({
+  async record(entry: AuditEntry, tx?: Prisma.TransactionClient): Promise<void> {
+    await (tx ?? this.prisma).auditEvent.create({
       data: {
         actorType: entry.actorId ? 'user' : 'system',
         actorId: entry.actorId,

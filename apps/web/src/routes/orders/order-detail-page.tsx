@@ -88,7 +88,7 @@ export default function OrderDetailPage() {
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/categories");
       if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
-      return data as unknown as Array<{ id: string; name: string }>;
+      return (data as unknown as Array<{ id: string; name: string; enabled?: boolean }>).filter(row => row.enabled !== false);
     },
   });
 
@@ -97,22 +97,29 @@ export default function OrderDetailPage() {
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/shipping-regions");
       if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
-      return data as unknown as Array<{ id: string; name: string }>;
+      return (data as unknown as Array<{ id: string; name: string; enabled?: boolean }>).filter(row => row.enabled !== false);
     },
   });
 
   const saveAssignment = async () => {
     setCopyBusy(true);
-    await api.PATCH("/api/v1/orders/{id}/assignment", {
-      params: { path: { id } },
-      body: {
-        shippingRegionId: editShippingRegionId || null,
-        categoryId: editCategoryId || null,
-      } as never,
-    });
-    setCopyBusy(false);
-    setEditingAssignment(false);
-    refresh();
+    setActionError(null);
+    try {
+      const { response, error } = await api.PATCH("/api/v1/orders/{id}/assignment", {
+        params: { path: { id } },
+        body: { shippingRegionId: editShippingRegionId || null, categoryId: editCategoryId || null },
+      });
+      if (!response.ok) {
+        setActionError((error as { message?: string } | undefined)?.message ?? t("orders.assignmentSaveFailed"));
+        return;
+      }
+      setEditingAssignment(false);
+      await refresh();
+    } catch {
+      setActionError(t("orders.assignmentSaveFailed"));
+    } finally {
+      setCopyBusy(false);
+    }
   };
 
   if (isLoading) return <p className="text-sm text-slate-400">{t("common.loading")}</p>;

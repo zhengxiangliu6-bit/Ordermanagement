@@ -105,6 +105,11 @@ export class OrderCustomerInputDto {
 }
 
 export class CreateManualOrderDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  shippingRegionId?: string;
+
   @ApiProperty({ type: [OrderLineInputDto], minItems: 1 })
   @IsArray()
   @ArrayMinSize(1)
@@ -134,6 +139,23 @@ export class CreateManualOrderDto {
   @IsString()
   @MaxLength(200)
   deliveryMethod?: string;
+}
+
+export class UpdateOrderAssignmentDto {
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @IsOptional()
+  @IsString()
+  shippingRegionId?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @IsOptional()
+  @IsString()
+  shippingMethodId?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @IsOptional()
+  @IsString()
+  categoryId?: string | null;
 }
 
 /** Internal revision input: a reason is mandatory (§11). */
@@ -311,6 +333,11 @@ export class ReviewCustomerDto {
 }
 
 export class ReviewItemLineDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  itemVariantId!: string;
+
   @ApiPropertyOptional({ description: 'Existing order line id; omit to add a new line.' })
   @IsOptional()
   @IsString()

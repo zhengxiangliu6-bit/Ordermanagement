@@ -22,7 +22,7 @@ interface WorkOrder {
   stage: string;
   customerSnapshot: Record<string, unknown> | null;
   buyerNote: string | null;
-  shippingRegion?: { id: string; name: string } | null;
+  shippingRegion?: { id: string; name: string; warehouse?: string } | null;
   category?: { id: string; name: string } | null;
   lines: WorkLine[];
   addOns?: Array<{
@@ -51,7 +51,7 @@ interface TailShipment {
     id: string;
     displayNumber: string;
     customerSnapshot: Record<string, unknown> | null;
-    shippingRegion?: { id: string; name: string } | null;
+    shippingRegion?: { id: string; name: string; warehouse?: string } | null;
   };
   carrier: { id: string; key: string; name: string };
   originalTrackingNumber: string | null;
@@ -69,6 +69,7 @@ interface VariantOption {
   name: string;
   nameEn?: string | null;
   item: { id: string; name: string; nameEn?: string | null };
+  stocks?: Array<{ warehouse: string; quantity: number; archivedAt?: string | null }>;
 }
 
 interface FailedShipmentRow {
@@ -360,7 +361,7 @@ export default function ShippingWorkPage({ tab }: { tab: Tab }) {
               tab={tab}
               order={order}
               carriers={carriers.data ?? []}
-              variants={variants.data ?? []}
+              variants={(variants.data ?? []).filter(variant => !variant.stocks?.some(stock => stock.warehouse === order.shippingRegion?.warehouse && stock.archivedAt))}
               permissions={permissions}
               busy={busy}
               onPack={(body) =>

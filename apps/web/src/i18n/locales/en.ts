@@ -1,5 +1,6 @@
 const en = {
   common: {
+    loadFailed: "Could not load data. Please retry.",
     no: "No",
     yes: "Yes",
     loading: "Loading…",
@@ -210,6 +211,7 @@ const en = {
     saveChanges: "Save changes",
   },
   orders: {
+    assignmentSaveFailed: "Could not save order assignment. Please retry.", warehouseStock: "Stock: {{count}}", outOfStock: "Out of stock; replenish before packing",
     copyAction: "Copy order",
     copying: "Copying…",
     cancelAction: "Cancel order",
@@ -560,6 +562,7 @@ const en = {
     disabledInstead: "\"{{name}}\" is referenced by orders and was disabled instead.",
   },
   shippingRegions: {
+    warehouse: "Warehouse", warehouseRequired: "Select a shipping region linked to a warehouse.",
     title: "Shipping regions",
     intro:
       "Maintain the regions selectable at unfulfilled-order review. A region referenced by orders cannot be deleted; it is disabled instead.",

@@ -23,6 +23,7 @@ export interface Item {
   nameEn: string;
   description: string | null;
   category: string | null;
+  categoryId?: string | null;
   tags: string[];
   images: Record<string, unknown> | null;
   archivedAt: string | null;

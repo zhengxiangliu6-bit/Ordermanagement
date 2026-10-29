@@ -14,7 +14,7 @@ export default function OrdersPage() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const root = useRouteLoaderData<typeof rootLoader>("root");
-  const canCreateManual = new Set(root?.user.permissions ?? []).has("orders:create-manual");
+  const canCreateManual = (root?.user.permissions ?? []).some(p => p === "*" || p === "orders:create-manual");
   const [search, setSearch] = useState("");
   const [source, setSource] = useState<"" | "manual" | "external">("");
   const [shippingRegionId, setShippingRegionId] = useState("");
@@ -108,6 +108,7 @@ export default function OrdersPage() {
             <p className="mb-3 text-sm text-red-600" role="alert">{error}</p>
           ) : null}
           <CreateOrderForm
+            initialRegionId={shippingRegionId}
             onDone={(createdId) => {
               setCreating(false);
               queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -290,36 +291,48 @@ interface VariantOption {
   id: string;
   itemCode: string;
   name: string;
-  item: { id: string; name: string };
+  item: { id: string; name: string; categoryId?: string | null };
+  stocks?: Array<{ warehouse: string; quantity: number; archivedAt?: string | null }>;
 }
 
-function CreateOrderForm({
+export function CreateOrderForm({
+  initialRegionId = "",
   onDone,
   onError,
 }: {
+  initialRegionId?: string;
   onDone: (createdId: string | null) => void;
   onError: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [variantQuery, setVariantQuery] = useState("");
+  const [regionId, setRegionId] = useState(initialRegionId);
+  const regions = useQuery({ queryKey: ["shipping-regions"], queryFn: async () => {
+    const { data, response } = await api.GET("/api/v1/shipping-regions");
+    if (!response.ok) throw new Error(t("common.loadFailed"));
+    return data as unknown as Array<{ id: string; name: string; enabled: boolean; warehouse: "china" | "canada" | null }>;
+  } });
+  const warehouse = regions.data?.find(region => region.id === regionId)?.warehouse ?? undefined;
 
   const variantOptions = useQuery({
-    queryKey: ["item-variants", variantQuery],
+    queryKey: ["item-variants", warehouse, variantQuery],
+    enabled: Boolean(warehouse),
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/item-variants", {
-        params: { query: { search: variantQuery || undefined } },
+        params: { query: { search: variantQuery || undefined, warehouse } },
       });
       if (!response.ok || !data) return [] as VariantOption[];
       return data as unknown as VariantOption[];
     },
   });
-  const [lines, setLines] = useState<Array<{ title: string; quantity: number; itemVariantId: string }>>([
+  const [lines, setLines] = useState<Array<{ title: string; quantity: number; itemVariantId: string; autoTitle?: string }>>([
     { title: "", quantity: 1, itemVariantId: "" },
   ]);
   const [busy, setBusy] = useState(false);
 
   const submit = async (form: HTMLFormElement) => {
+    if (!warehouse || !regionId) { onError(t("shippingRegions.warehouseRequired")); return; }
     const formData = new FormData(form);
     const customer: CustomerInput = {
       name: String(formData.get("customerName") ?? "").trim() || undefined,
@@ -332,8 +345,9 @@ function CreateOrderForm({
     };
     setBusy(true);
     onError("");
-    const { data, response } = await api.POST("/api/v1/orders", {
+    const { data, response, error } = await api.POST("/api/v1/orders", {
       body: {
+        shippingRegionId: regionId,
         lines: lines
           .filter((line) => line.title.trim())
           .map((line) => ({
@@ -348,7 +362,7 @@ function CreateOrderForm({
     });
     setBusy(false);
     if (!response.ok || !data) {
-      onError(`Creating the order failed (${response.status}).`);
+      onError((error as { message?: string } | undefined)?.message ?? `Creating the order failed (${response.status}).`);
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -363,16 +377,11 @@ function CreateOrderForm({
         // Selecting an internal item fills the product name when the line
         // has no hand-typed name yet (or was auto-filled from a variant).
         const autoName = chosen ? `${chosen.item.name}${chosen.name && chosen.name !== "Default" ? ` · ${chosen.name}` : ""}` : "";
-        const title = !line.title.trim() || wasAutoFilled(line.title, chosen?.item.name ?? "")
-          ? autoName || line.title
-          : line.title;
-        return { ...line, itemVariantId: variantId, title };
+        const title = !line.title.trim() || line.title === line.autoTitle ? autoName || line.title : line.title;
+        return { ...line, itemVariantId: variantId, title, autoTitle: autoName };
       }),
     );
   };
-
-  const wasAutoFilled = (current: string, itemName: string) =>
-    itemName.length > 0 && (current === itemName || current.startsWith(`${itemName} ·`));
 
   return (
     <form
@@ -382,6 +391,15 @@ function CreateOrderForm({
         void submit(event.currentTarget);
       }}
     >
+      <label htmlFor="manual-region" className="font-medium">{t("orders.shippingRegionLabel")}</label>
+      <select id="manual-region" required value={regionId} onChange={e => {
+        setRegionId(e.target.value);
+        setLines(current => current.map(line => line.itemVariantId ? { ...line, title: "", itemVariantId: "", autoTitle: "" } : line));
+      }} className="mb-4 ml-3 rounded-lg border border-ink/20 bg-white px-2 py-1.5">
+        <option value="">—</option>
+        {(regions.data ?? []).filter(region => region.enabled && region.warehouse).map(region => <option key={region.id} value={region.id}>{region.name}</option>)}
+      </select>
+      {regions.isError ? <p role="alert">{t("common.loadFailed")}</p> : null}
       <div className="font-medium">{t("orders.orderLines")}</div>
       <div className="mt-1 text-xs text-slate-400">{t("orders.linesHint")}</div>
       {lines.map((line, index) => (
@@ -423,7 +441,7 @@ function CreateOrderForm({
               <optgroup key={itemName} label={itemName}>
                 {groupVariants.map((option) => (
                   <option key={option.id} value={option.id}>
-                    {option.name} ({option.itemCode})
+                    {option.name} ({option.itemCode}) · {t("orders.warehouseStock", { count: option.stocks?.find(stock => stock.warehouse === warehouse)?.quantity ?? 0 })}{(option.stocks?.find(stock => stock.warehouse === warehouse)?.quantity ?? 0) < line.quantity ? ` · ${t("orders.outOfStock")}` : ""}
                   </option>
                 ))}
               </optgroup>

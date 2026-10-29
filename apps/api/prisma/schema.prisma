@@ -155,7 +155,9 @@ model Item {
   name        String
   nameEn      String    @default("")
   description String?
-  category    String?
+  category    String? // Legacy display name; categoryId is the authoritative relation.
+  categoryId  String?   @db.Uuid
+  categoryRecord Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   tags        String[]
   images      Json?
   archivedAt  DateTime?
@@ -168,6 +170,7 @@ model Item {
   notes           Note[]               @relation("ItemNotes")
 
   @@index([name])
+  @@index([categoryId])
   @@index([archivedAt])
 }
 
@@ -288,6 +291,7 @@ model Category {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   orders              Order[]
+  items               Item[]
 }
 
 /// Configurable shipping region (M7 workflow): assigned at unfulfilled-order

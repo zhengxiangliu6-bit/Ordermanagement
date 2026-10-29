@@ -73,6 +73,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/item-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a static catalog image; stores optimized WebP and a thumbnail. */
+        post: operations["ItemImagesController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/item-images/{id}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a stored catalog image (authenticated session required). */
+        get: operations["ItemImagesController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -1885,45 +1919,21 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/item-images": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Upload a static catalog image; stores optimized WebP and a thumbnail. */
-        post: operations["ItemImagesController_upload"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/item-images/{id}/{size}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read a stored catalog image (authenticated session required). */
-        get: operations["ItemImagesController_read"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        UploadedItemImage: {
+            url: string;
+            thumbnailUrl: string;
+            sizeBytes: number;
+            thumbnailSizeBytes: number;
+            width: number;
+            height: number;
+        };
         CreateItemDto: {
+            /** @description Managed category ID; null clears it. */
+            categoryId?: string | null;
             name: string;
             /** @description English name (Canada warehouse display). */
             nameEn?: string;
@@ -1934,6 +1944,8 @@ export interface components {
             images?: string[];
         };
         UpdateItemDto: {
+            /** @description Managed category ID; null clears it. */
+            categoryId?: string | null;
             name?: string;
             /** @description English name (Canada warehouse display). */
             nameEn?: string;
@@ -1990,7 +2002,13 @@ export interface components {
             listingVariantId: string;
             itemVariantId: string;
         };
+        UpdateOrderAssignmentDto: {
+            shippingRegionId?: string | null;
+            shippingMethodId?: string | null;
+            categoryId?: string | null;
+        };
         ReviewItemLineDto: {
+            itemVariantId: string;
             /** @description Existing order line id; omit to add a new line. */
             id?: string;
             title: string;
@@ -2034,6 +2052,7 @@ export interface components {
             country?: string;
         };
         CreateManualOrderDto: {
+            shippingRegionId?: string;
             lines: components["schemas"]["OrderLineInputDto"][];
             customer?: components["schemas"]["OrderCustomerInputDto"];
             buyerNote?: string;
@@ -2213,8 +2232,18 @@ export interface components {
              * @description Warehouse stock is deducted from.
              * @enum {string}
              */
-            warehouse?: "china" | "canada";
+            warehouse: "china" | "canada";
             name: string;
+            enabled?: boolean;
+            sortOrder?: number;
+        };
+        UpdateShippingRegionDto: {
+            /**
+             * @description Warehouse stock is deducted from.
+             * @enum {string}
+             */
+            warehouse?: "china" | "canada";
+            name?: string;
             enabled?: boolean;
             sortOrder?: number;
         };
@@ -2340,8 +2369,11 @@ export interface components {
         };
         CategoryDto: {
             name: string;
-            /** @description Tracking-site template with {number} placeholder (R8). */
-            trackingUrlTemplate?: Record<string, never>;
+            enabled?: boolean;
+            sortOrder?: number;
+        };
+        UpdateCategoryDto: {
+            name?: string;
             enabled?: boolean;
             sortOrder?: number;
         };
@@ -2365,14 +2397,6 @@ export interface components {
             permissions: string[];
             isActive: boolean;
             mustChangePassword: boolean;
-        };
-        UploadedItemImage: {
-            url: string;
-            thumbnailUrl: string;
-            sizeBytes: number;
-            thumbnailSizeBytes: number;
-            width: number;
-            height: number;
         };
     };
     responses: never;
@@ -2471,6 +2495,52 @@ export interface operations {
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ItemImagesController_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedItemImage"];
+                };
+            };
+        };
+    };
+    ItemImagesController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                size: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2818,6 +2888,7 @@ export interface operations {
     ItemVariantsController_search: {
         parameters: {
             query?: {
+                warehouse?: "china" | "canada";
                 search?: string;
             };
             header?: never;
@@ -3028,7 +3099,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrderAssignmentDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -4287,7 +4362,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShippingRegionDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -5131,7 +5210,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCategoryDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -5197,52 +5280,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthUser"];
                 };
-            };
-        };
-    };
-    ItemImagesController_upload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UploadedItemImage"];
-                };
-            };
-        };
-    };
-    ItemImagesController_read: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                size: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

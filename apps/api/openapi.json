@@ -168,6 +168,79 @@
         ]
       }
     },
+    "/api/v1/item-images": {
+      "post": {
+        "operationId": "ItemImagesController_upload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedItemImage"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a static catalog image; stores optimized WebP and a thumbnail.",
+        "tags": [
+          "item-images"
+        ]
+      }
+    },
+    "/api/v1/item-images/{id}/{size}": {
+      "get": {
+        "operationId": "ItemImagesController_read",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Read a stored catalog image (authenticated session required).",
+        "tags": [
+          "item-images"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_check",
@@ -655,6 +728,18 @@
         "operationId": "ItemVariantsController_search",
         "parameters": [
           {
+            "name": "warehouse",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "china",
+                "canada"
+              ]
+            }
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
@@ -937,6 +1022,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrderAssignmentDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -2778,6 +2873,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShippingRegionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -3862,6 +3967,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -3978,79 +4093,6 @@
           "auth"
         ]
       }
-    },
-    "/api/v1/item-images": {
-      "post": {
-        "operationId": "ItemImagesController_upload",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "file"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadedItemImage"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Upload a static catalog image; stores optimized WebP and a thumbnail.",
-        "tags": [
-          "item-images"
-        ]
-      }
-    },
-    "/api/v1/item-images/{id}/{size}": {
-      "get": {
-        "operationId": "ItemImagesController_read",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "size",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Read a stored catalog image (authenticated session required).",
-        "tags": [
-          "item-images"
-        ]
-      }
     }
   },
   "info": {
@@ -4070,9 +4112,45 @@
       }
     },
     "schemas": {
+      "UploadedItemImage": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "thumbnailSizeBytes": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "url",
+          "thumbnailUrl",
+          "sizeBytes",
+          "thumbnailSizeBytes",
+          "width",
+          "height"
+        ]
+      },
       "CreateItemDto": {
         "type": "object",
         "properties": {
+          "categoryId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Managed category ID; null clears it."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -4109,6 +4187,11 @@
       "UpdateItemDto": {
         "type": "object",
         "properties": {
+          "categoryId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Managed category ID; null clears it."
+          },
           "name": {
             "type": "string"
           },
@@ -4268,9 +4351,29 @@
           "itemVariantId"
         ]
       },
+      "UpdateOrderAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "shippingRegionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "shippingMethodId": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "ReviewItemLineDto": {
         "type": "object",
         "properties": {
+          "itemVariantId": {
+            "type": "string"
+          },
           "id": {
             "type": "string",
             "description": "Existing order line id; omit to add a new line."
@@ -4286,6 +4389,7 @@
           }
         },
         "required": [
+          "itemVariantId",
           "title",
           "quantity"
         ]
@@ -4404,6 +4508,9 @@
       "CreateManualOrderDto": {
         "type": "object",
         "properties": {
+          "shippingRegionId": {
+            "type": "string"
+          },
           "lines": {
             "minItems": 1,
             "type": "array",
@@ -4954,8 +5061,33 @@
           }
         },
         "required": [
+          "warehouse",
           "name"
         ]
+      },
+      "UpdateShippingRegionDto": {
+        "type": "object",
+        "properties": {
+          "warehouse": {
+            "type": "string",
+            "enum": [
+              "china",
+              "canada"
+            ],
+            "description": "Warehouse stock is deducted from."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        }
       },
       "PackShipmentDto": {
         "type": "object",
@@ -5316,10 +5448,6 @@
             "minLength": 1,
             "maxLength": 50
           },
-          "trackingUrlTemplate": {
-            "type": "object",
-            "description": "Tracking-site template with {number} placeholder (R8)."
-          },
           "enabled": {
             "type": "boolean"
           },
@@ -5330,6 +5458,22 @@
         "required": [
           "name"
         ]
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        }
       },
       "LoginDto": {
         "type": "object",
@@ -5386,37 +5530,6 @@
           "permissions",
           "isActive",
           "mustChangePassword"
-        ]
-      },
-      "UploadedItemImage": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string"
-          },
-          "thumbnailUrl": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "number"
-          },
-          "thumbnailSizeBytes": {
-            "type": "number"
-          },
-          "width": {
-            "type": "number"
-          },
-          "height": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "url",
-          "thumbnailUrl",
-          "sizeBytes",
-          "thumbnailSizeBytes",
-          "width",
-          "height"
         ]
       }
     }

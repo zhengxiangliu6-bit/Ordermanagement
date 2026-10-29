@@ -94,7 +94,7 @@ export default function ReviewPage() {
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/categories");
       if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
-      return data as unknown as Array<{ id: string; name: string }>;
+      return (data as unknown as Array<{ id: string; name: string; enabled?: boolean }>).filter(row => row.enabled !== false);
     },
   });
 
@@ -103,7 +103,7 @@ export default function ReviewPage() {
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/shipping-regions");
       if (!response.ok || !data) return [] as Array<{ id: string; name: string }>;
-      return data as unknown as Array<{ id: string; name: string }>;
+      return (data as unknown as Array<{ id: string; name: string; enabled?: boolean }>).filter(row => row.enabled !== false);
     },
   });
 

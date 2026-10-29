@@ -16,6 +16,7 @@ import { NotesService } from '../notes/notes.service';
 import { OrdersService } from './orders.service';
 import {
   CancelOrderDto,
+  UpdateOrderAssignmentDto,
   CreateManualOrderDto,
   CreateOrderLinkDto,
   ListOrdersQueryDto,
@@ -38,7 +39,7 @@ export class OrdersController {
   @ApiOperation({ summary: 'Update shipping-method/category assignment (M7).' })
   updateAssignment(
     @Param('id') id: string,
-    @Body() dto: { shippingMethodId?: string | null; categoryId?: string | null },
+    @Body() dto: UpdateOrderAssignmentDto,
     @CurrentUser() user: AuthUser,
   ) {
     return this.orders.updateAssignment(id, dto, user.id);

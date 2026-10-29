@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { requireOrderRegion, resolveOrderVariant } from '../orders/order-product-links';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -17,7 +18,7 @@ import type {
 } from './dto/shipping.dto';
 
 const queueOrderInclude = {
-  shippingRegion: { select: { id: true, name: true } },
+  shippingRegion: { select: { id: true, name: true, warehouse: true } },
   category: { select: { id: true, name: true } },
   lines: {
     orderBy: { createdAt: 'asc' as const },
@@ -119,7 +120,7 @@ export class ShippingWorkService {
             id: true,
             displayNumber: true,
             customerSnapshot: true,
-            shippingRegion: { select: { id: true, name: true } },
+            shippingRegion: { select: { id: true, name: true, warehouse: true } },
           },
         },
       },
@@ -202,90 +203,80 @@ export class ShippingWorkService {
 
   /** Packing confirm: weight/dimensions create the shipment, stage -> ordering. */
   async pack(orderId: string, dto: PackShipmentDto, userId: string) {
-    const order = await this.requireStage(orderId, 'packing');
-    // Stock is deducted at packing; insufficient stock aborts here.
-    const warehouse = await this.inventory.warehouseForOrder(orderId);
-    if (warehouse) {
-      await this.inventory.deductForOrder(orderId, warehouse, userId, 'packing outbound');
-    }
-    await this.claim(orderId, 'packing', 'ordering', 'packed', userId);
-    try {
-      const packed = await this.shipments.createPackedShipment(orderId, dto, userId);
-      await this.event(
-        orderId,
-        'packing',
-        'ordering',
-        'packed',
-        userId,
-        {
-          ...packed,
-          shippingRegion: order.shippingRegion?.name ?? null,
-        },
-        dto.note,
-        "Packing",
-      );
-    } catch (error) {
-      // The claim already moved the stage; roll it back so the order can be
-      // retried instead of disappearing from the packing queue.
-      await this.prisma.order.updateMany({
-        where: { id: orderId, stage: 'ordering' },
-        data: { stage: 'packing' },
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, stage: 'packing', stockDeductedAt: null, cancelledAt: null, deletedAt: null, archivedAt: null },
+        data: { stage: 'ordering', stageUpdatedAt: new Date(), stageUpdatedBy: userId, version: { increment: 1 } },
       });
-      throw error;
-    }
-    return this.prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: queueOrderInclude,
+      if (!claimed.count) throw new ConflictException('Order already handled or stock already deducted; refresh the queue.');
+      const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { shippingRegion: true } });
+      const warehouse = order.shippingRegion?.warehouse;
+      if (!order.shippingRegion?.enabled || !warehouse || !['china', 'canada'].includes(warehouse)) {
+        throw new ConflictException('The shipping region must be linked to a warehouse before packing.');
+      }
+      await this.inventory.deductForOrder(orderId, warehouse, userId, 'packing outbound', tx);
+      const packed = await this.shipments.createPackedShipment(orderId, dto, userId, tx);
+      await tx.orderStageEvent.create({ data: { orderId, fromStage: 'packing', toStage: 'ordering', action: 'packed', actorId: userId,
+        note: dto.note?.trim() || null, metadata: { ...packed, shippingRegion: order.shippingRegion.name } } });
+      if (dto.note?.trim()) await tx.note.create({ data: { ownerType: 'order', ownerId: orderId, orderOwnerId: orderId, body: `[Packing] ${dto.note.trim()}`, createdBy: userId } });
+      await this.audit.record({ actorId: userId, action: 'order.stage.packed', objectType: 'Order', objectId: orderId,
+        after: { fromStage: 'packing', toStage: 'ordering' } }, tx);
+      return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: queueOrderInclude });
     });
   }
 
   /** Adds a gift/extra item while the order is being packed. */
   async addAddOn(orderId: string, dto: CreateAddOnDto, userId: string) {
-    await this.requireStage(orderId, 'packing');
-    let title = dto.title.trim();
-    if (dto.itemVariantId) {
-      const variant = await this.prisma.itemVariant.findUnique({
-        where: { id: dto.itemVariantId },
-        include: { item: { select: { name: true } } },
+    return this.prisma.$transaction(async tx => {
+        const claimed = await tx.order.updateMany({ where: { id: orderId, stage: 'packing', stockDeductedAt: null }, data: { version: { increment: 1 } } });
+        if (!claimed.count) throw new ConflictException('Order is no longer available for gift edits.');
+      const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+      const region = order.shippingRegionId ? await requireOrderRegion(tx, order.shippingRegionId) : null;
+      if (!region) throw new ConflictException('Select a shipping warehouse first.');
+      let title = dto.title.trim();
+      if (dto.itemVariantId) {
+        const { variant } = await resolveOrderVariant(tx, dto.itemVariantId, region.warehouse);
+        if (!title) title = `${variant.item.name} / ${variant.name}`;
+      }
+      const addOn = await tx.orderAddOn.create({
+        data: {
+          orderId,
+          itemVariantId: dto.itemVariantId ?? null,
+          title,
+          quantity: dto.quantity ?? 1,
+          note: dto.note?.trim() || null,
+          addedBy: userId,
+        },
+        include: { itemVariant: { select: { id: true, itemCode: true, name: true } } },
       });
-      if (!variant) throw new NotFoundException('Item variant not found.');
-      if (!title) title = `${variant.item.name} / ${variant.name}`;
-    }
-    const addOn = await this.prisma.orderAddOn.create({
-      data: {
-        orderId,
-        itemVariantId: dto.itemVariantId ?? null,
-        title,
-        quantity: dto.quantity ?? 1,
-        note: dto.note?.trim() || null,
-        addedBy: userId,
-      },
-      include: { itemVariant: { select: { id: true, itemCode: true, name: true } } },
+      await this.audit.record({
+        actorId: userId,
+        action: 'order.add_on_added',
+        objectType: 'Order',
+        objectId: orderId,
+        after: { addOnId: addOn.id, title, quantity: addOn.quantity },
+      }, tx);
+      return addOn;
     });
-    await this.audit.record({
-      actorId: userId,
-      action: 'order.add_on_added',
-      objectType: 'Order',
-      objectId: orderId,
-      after: { addOnId: addOn.id, title, quantity: addOn.quantity },
-    });
-    return addOn;
   }
 
   async removeAddOn(orderId: string, addOnId: string, userId: string) {
-    await this.requireStage(orderId, 'packing');
-    const result = await this.prisma.orderAddOn.deleteMany({
-      where: { id: addOnId, orderId },
+    return this.prisma.$transaction(async tx => {
+        const claimed = await tx.order.updateMany({ where: { id: orderId, stage: 'packing', stockDeductedAt: null }, data: { version: { increment: 1 } } });
+        if (!claimed.count) throw new ConflictException('Order is no longer available for gift edits.');
+      const result = await tx.orderAddOn.deleteMany({
+        where: { id: addOnId, orderId },
+      });
+      if (result.count === 0) throw new NotFoundException('Add-on not found.');
+      await this.audit.record({
+        actorId: userId,
+        action: 'order.add_on_removed',
+        objectType: 'Order',
+        objectId: orderId,
+        before: { addOnId },
+      }, tx);
+      return { ok: true };
     });
-    if (result.count === 0) throw new NotFoundException('Add-on not found.');
-    await this.audit.record({
-      actorId: userId,
-      action: 'order.add_on_removed',
-      objectType: 'Order',
-      objectId: orderId,
-      before: { addOnId },
-    });
-    return { ok: true };
   }
 
   /**
@@ -374,7 +365,7 @@ export class ShippingWorkService {
     );
     return this.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
-      include: { shippingRegion: { select: { id: true, name: true } } },
+      include: { shippingRegion: { select: { id: true, name: true, warehouse: true } } },
     });
   }
 

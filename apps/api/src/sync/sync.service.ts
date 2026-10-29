@@ -1,3 +1,4 @@
+import { categoryForVariants } from '../orders/order-product-links';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -317,6 +318,8 @@ export class SyncService {
           existingOrder: true,
           storeName: store.displayName,
           platform: store.platform,
+          shippingRegionId: dbOrder.shippingRegionId,
+          categoryId: dbOrder.categoryId,
           order: {
             externalOrderId: order.externalOrderId,
             displayNumber: dbOrder.displayNumber,
@@ -520,6 +523,7 @@ export class SyncService {
                   externalVariantId: line.variantExternalId,
                 },
               },
+              include: { itemVariant: { select: { itemId: true } } },
             })
           : null;
         const listingVersion = listing
@@ -531,7 +535,7 @@ export class SyncService {
           : null;
         const itemVersion = listingVariant?.itemVariantId
           ? await this.prisma.itemContentVersion.findFirst({
-              where: { itemId: listingVariant.itemVariantId },
+              where: { itemId: listingVariant.itemVariant!.itemId },
               orderBy: { effectiveAt: 'desc' },
               select: { id: true },
             })
@@ -549,10 +553,12 @@ export class SyncService {
       }),
     );
 
+    const categoryId = await categoryForVariants(this.prisma, resolvedLines.map(line => line.itemVariantId));
     const externalView = orderExternalView(order);
     const created = await this.prisma.order.create({
       data: {
         source: 'external',
+        categoryId,
         storeId: store.id,
         platform: store.platform,
         externalOrderId: order.externalOrderId,

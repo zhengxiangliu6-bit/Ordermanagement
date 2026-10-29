@@ -35,6 +35,8 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
   let regionId = '';
   let categoryId = '';
   let carrierId = '';
+  let catalogItemId = '';
+  let catalogVariantId = '';
   let unfulfilledOrderId = '';
   let fulfilledOrderId = '';
   const extraOrderIds: string[] = [];
@@ -106,6 +108,11 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
       data: { platform: 'shopify', displayName: `Flow E2E ${suffix}` },
     });
     storeId = store.id;
+    const item = await prisma.item.create({ data: { name: `Flow catalog ${suffix}`, tags: [], createdBy: 'e2e', variants: { create: { itemCode: `FLOW-${suffix}`, name: 'Default' } } }, include: { variants: true } });
+    catalogItemId = item.id;
+    catalogVariantId = item.variants[0].id;
+    await prisma.itemContentVersion.create({ data: { itemId: item.id, snapshot: { name: item.name, variants: [] } } });
+    await prisma.inventoryStock.createMany({ data: ['china', 'canada'].map(warehouse => ({ itemVariantId: catalogVariantId, warehouse, quantity: 100 })) });
 
     const summary = await sync.runStoreSync(store, [], [
       externalOrder('U', unfulfilledNumber, {
@@ -134,6 +141,8 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
 
     const imported = await prisma.order.findMany({ where: { storeId } });
     expect(imported).toHaveLength(4);
+    // This workflow fixture uses real system identities so packing exercises stock deduction.
+    await prisma.orderLine.updateMany({ where: { orderId: { in: imported.map(order => order.id) } }, data: { itemVariantId: catalogVariantId } });
     const byNumber = new Map(imported.map((row) => [row.displayNumber, row]));
     expect(byNumber.get(unfulfilledNumber)?.stage).toBe('review');
     expect(byNumber.get(partialNumber)?.stage).toBe('review');
@@ -183,6 +192,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
       }
       await prisma.order.deleteMany({ where: { storeId } });
       await prisma.store.deleteMany({ where: { id: storeId } });
+      if (catalogItemId) await prisma.item.delete({ where: { id: catalogItemId } });
       await prisma.user.deleteMany({ where: { email: staffEmail } });
       await prisma.shippingRegion.deleteMany({ where: { name: { contains: suffix } } });
       await prisma.carrier.deleteMany({ where: { key: carrierKey } });
@@ -262,7 +272,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     const created = await agent
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
-      .send({ lines: [{ title: 'Return line', quantity: 1 }] })
+      .send({ lines: [{ itemVariantId: catalogVariantId, title: 'Return line', quantity: 1 }] })
       .expect(201);
     const orderId = created.body.id as string;
     extraOrderIds.push(orderId);
@@ -306,7 +316,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     const created = await agent
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
-      .send({ lines: [{ title: 'Ordering return line', quantity: 1 }] })
+      .send({ lines: [{ itemVariantId: catalogVariantId, title: 'Ordering return line', quantity: 1 }] })
       .expect(201);
     const orderId = created.body.id as string;
     extraOrderIds.push(orderId);
@@ -384,7 +394,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
       .send({
-        lines: [{ title: 'Manual cancel line', quantity: 1 }],
+        lines: [{ itemVariantId: catalogVariantId, title: 'Manual cancel line', quantity: 1 }],
         customer: { name: 'Manual Cancel' },
       })
       .expect(201);
@@ -438,7 +448,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     const created = await agent
       .post('/api/v1/shipping-regions')
       .set('Cookie', adminCookie)
-      .send({ name: `E2E Region ${suffix}`, sortOrder: 99 })
+      .send({ name: `E2E Region ${suffix}`, warehouse: 'china', sortOrder: 99 })
       .expect(201);
     const renamed = await agent
       .patch(`/api/v1/shipping-regions/${created.body.id}`)
@@ -457,7 +467,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
       .send({
-        lines: [{ title: 'Workflow line', quantity: 2 }],
+        lines: [{ itemVariantId: catalogVariantId, title: 'Workflow line', quantity: 2 }],
         customer: { name: 'Workflow Customer', addressLine1: '1 Test Road' },
       })
       .expect(201);
@@ -477,8 +487,8 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
       .set('Cookie', adminCookie)
       .send({
         lines: [
-          { id: lineId, title: 'Workflow line updated', quantity: 3 },
-          { title: 'Extra product', quantity: 1 },
+          { id: lineId, itemVariantId: catalogVariantId, title: 'Workflow line updated', quantity: 3 },
+          { itemVariantId: catalogVariantId, title: 'Extra product', quantity: 1 },
         ],
       })
       .expect(200);
@@ -515,7 +525,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     await agent
       .post(`/api/v1/shipping-work/${orderId}/add-ons`)
       .set('Cookie', adminCookie)
-      .send({ title: 'Gift sticker', quantity: 2 })
+      .send({ itemVariantId: catalogVariantId, title: 'Gift sticker', quantity: 2 })
       .expect(201);
 
     const packing = await agent
@@ -637,7 +647,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     const created = await agent
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
-      .send({ lines: [{ title: 'Problem line', quantity: 1 }] })
+      .send({ lines: [{ itemVariantId: catalogVariantId, title: 'Problem line', quantity: 1 }] })
       .expect(201);
     const orderId = created.body.id as string;
     extraOrderIds.push(orderId);
@@ -697,7 +707,7 @@ suite('order flow e2e (workflow, copy, cancel)', () => {
     const created = await agent
       .post('/api/v1/orders')
       .set('Cookie', adminCookie)
-      .send({ lines: [{ title: 'Copy problem line', quantity: 1 }] })
+      .send({ lines: [{ itemVariantId: catalogVariantId, title: 'Copy problem line', quantity: 1 }] })
       .expect(201);
     const orderId = created.body.id as string;
     extraOrderIds.push(orderId);

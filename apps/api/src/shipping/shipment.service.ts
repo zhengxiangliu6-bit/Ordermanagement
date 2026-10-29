@@ -247,9 +247,11 @@ export class ShipmentService {
     orderId: string,
     dto: PackShipmentDto,
     userId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ shipmentId: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number }> {
-    await this.loadEnterableOrder(orderId);
-    const existing = await this.prisma.shipment.findFirst({
+    const db = tx ?? this.prisma;
+    if (!tx) await this.loadEnterableOrder(orderId);
+    const existing = await db.shipment.findFirst({
       where: { orderId, voidedAt: null },
     });
     if (existing) {
@@ -265,7 +267,7 @@ export class ShipmentService {
     const widthCm = toCm(dto.widthValue);
     const heightCm = toCm(dto.heightValue);
 
-    const shipment = await this.prisma.shipment.create({
+    const shipment = await db.shipment.create({
       data: {
         orderId,
         weightGrams,
@@ -287,7 +289,7 @@ export class ShipmentService {
       objectType: 'shipment',
       objectId: shipment.id,
       after: { orderId, weightGrams, lengthCm, widthCm, heightCm },
-    });
+    }, tx);
     return { shipmentId: shipment.id, weightGrams, lengthCm, widthCm, heightCm };
   }
 

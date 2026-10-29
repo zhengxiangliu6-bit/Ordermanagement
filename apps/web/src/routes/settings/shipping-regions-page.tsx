@@ -7,6 +7,7 @@ import { PageHeader, Card, Badge, EmptyState, buttonClasses } from "../../compon
 interface ShippingRegionRow {
   id: string;
   name: string;
+  warehouse: "china" | "canada" | null;
   enabled: boolean;
   sortOrder: number;
 }
@@ -18,7 +19,7 @@ export default function ShippingRegionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", sortOrder: 0 });
+  const [form, setForm] = useState({ name: "", warehouse: "", sortOrder: 0 });
 
   const methods = useQuery({
     queryKey: ["shipping-regions"],
@@ -33,8 +34,8 @@ export default function ShippingRegionsPage() {
 
   const save = async () => {
     setError(null);
-    if (!form.name.trim()) return;
-    const body = { name: form.name.trim(), sortOrder: form.sortOrder };
+    if (!form.name.trim() || !form.warehouse) { setError(t("shippingRegions.warehouseRequired")); return; }
+    const body = { name: form.name.trim(), warehouse: form.warehouse, sortOrder: form.sortOrder };
     if (editingId) {
       const { response: res } = await api.PATCH("/api/v1/shipping-regions/{id}", {
         params: { path: { id: editingId } },
@@ -55,7 +56,7 @@ export default function ShippingRegionsPage() {
     }
     setCreating(false);
     setEditingId(null);
-    setForm({ name: "", sortOrder: 0 });
+    setForm({ name: "", warehouse: "", sortOrder: 0 });
     await refresh();
   };
 
@@ -87,13 +88,13 @@ export default function ShippingRegionsPage() {
   const startEdit = (method: ShippingRegionRow) => {
     setEditingId(method.id);
     setCreating(false);
-    setForm({ name: method.name, sortOrder: method.sortOrder });
+    setForm({ name: method.name, warehouse: method.warehouse ?? "", sortOrder: method.sortOrder });
   };
 
   const startCreate = () => {
     setCreating(true);
     setEditingId(null);
-    setForm({ name: "", sortOrder: (methods.data?.length ?? 0) + 1 });
+    setForm({ name: "", warehouse: "", sortOrder: (methods.data?.length ?? 0) + 1 });
   };
 
   const showForm = creating || editingId !== null;
@@ -131,6 +132,12 @@ export default function ShippingRegionsPage() {
               />
             </div>
             <div>
+              <label htmlFor="region-warehouse" className="block text-xs font-medium text-slate-500">{t("shippingRegions.warehouse")}</label>
+              <select id="region-warehouse" value={form.warehouse} onChange={e => setForm({ ...form, warehouse: e.target.value })} className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2 py-1.5">
+                <option value="">—</option><option value="china">{t("inventory.warehouse.china")}</option><option value="canada">{t("inventory.warehouse.canada")}</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-slate-500">
                 {t("shippingRegions.sortOrder")}
               </label>
@@ -159,6 +166,7 @@ export default function ShippingRegionsPage() {
               <thead>
                 <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-slate-400">
                   <th className="px-4 py-2.5 font-semibold">{t("shippingRegions.name")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("shippingRegions.warehouse")}</th>
                   <th className="px-3 py-2.5 font-semibold">{t("shippingRegions.sortOrder")}</th>
                   <th className="px-3 py-2.5 font-semibold">{t("items.status")}</th>
                   <th className="px-3 py-2.5 font-semibold"></th>
@@ -168,6 +176,7 @@ export default function ShippingRegionsPage() {
                 {methods.data.map((method) => (
                   <tr key={method.id} className="border-b border-ink/5 transition-colors last:border-0 hover:bg-pill">
                     <td className="px-4 py-2.5 font-medium text-ink">{method.name}</td>
+                    <td className="px-3 py-2.5">{method.warehouse ? t(`inventory.warehouse.${method.warehouse}`) : t("shippingRegions.warehouseRequired")}</td>
                     <td className="px-3 py-2.5 font-mono text-xs">{method.sortOrder}</td>
                     <td className="px-3 py-2.5">
                       <button type="button" onClick={() => void toggleEnabled(method)}>

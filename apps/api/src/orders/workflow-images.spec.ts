@@ -42,7 +42,7 @@ describe('workflow image projections', () => {
           ]),
         count: vi.fn().mockResolvedValue(1),
       },
-      order: { findMany: vi.fn() },
+      order: { findMany: vi.fn(), findUnique: vi.fn().mockResolvedValue(null) },
       $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
     };
     const service = new ReviewService(

@@ -1,3 +1,4 @@
+import { CategorySelect } from "./category-select";
 import { useState } from "react";
 import { useParams, useRouteLoaderData } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -55,8 +56,9 @@ function ItemDetailContent() {
     },
   });
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["item", id] });
+  const refresh = async () => {
+    await Promise.all(["item", "items", "item-variants", "review-item-variants", "inventory", "review", "order", "orders"].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
+  };
 
   if (isLoading)
     return <p className="text-sm text-slate-400">{t("common.loading")}</p>;
@@ -113,9 +115,9 @@ function ItemHeader({
         body: {
           name: String(formData.get("name") ?? "").trim() || undefined,
           nameEn: String(formData.get("nameEn") ?? "").trim(),
-          category: String(formData.get("category") ?? "").trim() || undefined,
+          categoryId: String(formData.get("categoryId") ?? "").trim() || null,
           description:
-            String(formData.get("description") ?? "").trim() || undefined,
+            String(formData.get("description") ?? "").trim(),
           images: editImages.map((url) => url.trim()).filter(Boolean),
         },
       });
@@ -272,12 +274,7 @@ function ItemHeader({
             <label htmlFor="edit-category" className="self-center font-medium">
               {t("items.category")}
             </label>
-            <input
-              id="edit-category"
-              name="category"
-              defaultValue={item.category ?? ""}
-              className="rounded-lg border border-ink/20 bg-white px-2 py-1.5"
-            />
+            <CategorySelect id="edit-category" defaultValue={item.categoryId} />
             <label
               htmlFor="edit-description"
               className="self-center font-medium"

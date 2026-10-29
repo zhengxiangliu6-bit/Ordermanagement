@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { buttonClasses } from "../../components/ui";
@@ -49,6 +49,7 @@ interface CategoryOption {
 interface ShippingRegionOption {
   id: string;
   name: string;
+  warehouse?: "china" | "canada" | null;
 }
 
 interface VariantOption {
@@ -99,6 +100,7 @@ export function NewOrderReviewCard({
     record.payload?.shippingRegionId ?? "",
   );
   const [categoryId, setCategoryId] = useState(record.payload?.categoryId ?? "");
+  useEffect(() => { setCategoryId(record.payload?.categoryId ?? ""); }, [record.payload?.categoryId]);
   const [note, setNote] = useState(record.reviewerNote ?? "");
   const [noteSaved, setNoteSaved] = useState(Boolean(record.reviewerNote));
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -113,12 +115,13 @@ export function NewOrderReviewCard({
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [itemLines, setItemLines] = useState<ItemLine[]>([]);
   const [variantSearch, setVariantSearch] = useState("");
+  const warehouse = shippingRegions.find(region => region.id === shippingRegionId)?.warehouse ?? undefined;
   const itemVariants = useQuery({
-    queryKey: ["review-item-variants", variantSearch],
+    queryKey: ["review-item-variants", warehouse, variantSearch],
     enabled: itemsOpen,
     queryFn: async () => {
       const { data, response } = await api.GET("/api/v1/item-variants", {
-        params: { query: { search: variantSearch || undefined } },
+        params: { query: { search: variantSearch || undefined, warehouse } },
       });
       if (!response.ok || !data) return [] as VariantOption[];
       return data as unknown as VariantOption[];

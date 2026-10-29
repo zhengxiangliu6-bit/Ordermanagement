@@ -119,6 +119,9 @@ export default function MappingPage() {
   });
 
   const refresh = () => {
+    for (const key of ["item-variants", "review-item-variants", "items", "item", "orders", "order", "review", "listings", "inventory"]) {
+      void queryClient.invalidateQueries({ queryKey: [key] });
+    }
     void queryClient.invalidateQueries({ queryKey: ["mapping-queue", storeId] });
     void queryClient.invalidateQueries({ queryKey: ["mapping-mapped", storeId] });
   };
