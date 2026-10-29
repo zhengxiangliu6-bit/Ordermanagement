@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
 import type { StorageDriver } from './storage.types.js';
 
@@ -17,7 +18,14 @@ export class LocalVolumeDriver implements StorageDriver {
   async put(key: string, data: Buffer): Promise<string> {
     const path = this.resolveKey(key);
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, data);
+    // Never serve a partially written image/attachment, including concurrent uploads.
+    const temporary = `${path}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, data, { flag: 'wx' });
+      await rename(temporary, path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
     return key;
   }
 

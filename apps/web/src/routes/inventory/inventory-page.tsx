@@ -36,8 +36,7 @@ interface ItemView {
   total: number;
 }
 
-const WAREHOUSES = ["china", "canada"] as const;
-type Warehouse = (typeof WAREHOUSES)[number];
+type Warehouse = "china" | "canada";
 
 interface ItemForm {
   name: string;
@@ -482,6 +481,8 @@ export default function InventoryPage({
                     {firstImageUrl(item.images) ? (
                       <img
                         src={firstImageUrl(item.images) ?? ""}
+                        loading="lazy"
+                        decoding="async"
                         alt={item.name}
                         onError={(event) => {
                           event.currentTarget.style.display = "none";

@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./api.env   # BETTER_AUTH_SECRET, DATABASE_URL, admin seed, etc. (local only)
+    environment:
+      ATTACHMENTS_DIR: /data/attachments
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,3 +1,4 @@
+import { ItemImagesModule } from './item-images/item-images.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
@@ -23,6 +24,7 @@ import { InventoryModule } from './inventory/inventory.module';
 @Module({
   imports: [
     AttachmentsModule,
+    ItemImagesModule,
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     RelayModule,

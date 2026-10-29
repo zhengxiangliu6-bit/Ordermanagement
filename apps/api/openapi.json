@@ -3978,6 +3978,79 @@
           "auth"
         ]
       }
+    },
+    "/api/v1/item-images": {
+      "post": {
+        "operationId": "ItemImagesController_upload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedItemImage"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a static catalog image; stores optimized WebP and a thumbnail.",
+        "tags": [
+          "item-images"
+        ]
+      }
+    },
+    "/api/v1/item-images/{id}/{size}": {
+      "get": {
+        "operationId": "ItemImagesController_read",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Read a stored catalog image (authenticated session required).",
+        "tags": [
+          "item-images"
+        ]
+      }
     }
   },
   "info": {
@@ -5313,6 +5386,37 @@
           "permissions",
           "isActive",
           "mustChangePassword"
+        ]
+      },
+      "UploadedItemImage": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "thumbnailSizeBytes": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "url",
+          "thumbnailUrl",
+          "sizeBytes",
+          "thumbnailSizeBytes",
+          "width",
+          "height"
         ]
       }
     }

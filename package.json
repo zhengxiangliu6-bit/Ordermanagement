@@ -12,7 +12,8 @@
       "prisma",
       "esbuild",
       "@tailwindcss/oxide",
-      "@swc/core"
+      "@swc/core",
+      "sharp"
     ]
   },
   "scripts": {

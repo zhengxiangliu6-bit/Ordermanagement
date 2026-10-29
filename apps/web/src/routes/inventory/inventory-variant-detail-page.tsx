@@ -9,6 +9,7 @@ import {
   MOVEMENT_LABELS,
   WAREHOUSE_LABELS,
 } from "./movement-filter-bar";
+import { ItemImages } from "../items/item-images";
 import { warehouseDisplayName, imageUrls } from "./naming";
 import { AccessDeniedPage } from "../access-denied";
 import { api } from "../../api-client/client";
@@ -60,8 +61,7 @@ interface MovementsPage {
   pageSize: number;
 }
 
-const WAREHOUSES = ["china", "canada"] as const;
-type Warehouse = (typeof WAREHOUSES)[number];
+type Warehouse = "china" | "canada";
 
 /**
  * Single product-variant inventory page, scoped to ONE warehouse: the two
@@ -349,50 +349,10 @@ export default function InventoryVariantDetailPage() {
         </div>
       </Card>
 
-      <Card title={t("inventory.imagesTitle")}>
-        {(() => {
-          const urls = imageUrls(variant.images);
-          const fallback = imageUrls(
-            (variant.item as unknown as { images?: unknown }).images,
-          );
-          const list = urls.length > 0 ? urls : fallback;
-          if (list.length === 0) {
-            return <p className="text-sm text-slate-400">{t("inventory.noImages")}</p>;
-          }
-          return (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {list.map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" title={url}>
-                    <img
-                      src={url}
-                      alt={displayName}
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                      }}
-                      className="h-16 w-16 rounded-lg border border-ink/10 object-cover"
-                    />
-                  </a>
-                ))}
-              </div>
-              <ul className="space-y-0.5">
-                {list.map((url) => (
-                  <li key={`link-${url}`} className="max-w-md truncate text-xs">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-indigo-600 underline-offset-2 hover:underline"
-                    >
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
-      </Card>
+      <ItemImages
+        name={displayName}
+        images={imageUrls(variant.images).length > 0 ? variant.images : (variant.item as unknown as { images?: unknown }).images}
+      />
 
       <Card>
         <div className="flex flex-wrap items-center gap-2">

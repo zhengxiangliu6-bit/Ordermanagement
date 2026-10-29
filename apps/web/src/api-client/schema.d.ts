@@ -1885,6 +1885,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/item-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a static catalog image; stores optimized WebP and a thumbnail. */
+        post: operations["ItemImagesController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/item-images/{id}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a stored catalog image (authenticated session required). */
+        get: operations["ItemImagesController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2331,6 +2365,14 @@ export interface components {
             permissions: string[];
             isActive: boolean;
             mustChangePassword: boolean;
+        };
+        UploadedItemImage: {
+            url: string;
+            thumbnailUrl: string;
+            sizeBytes: number;
+            thumbnailSizeBytes: number;
+            width: number;
+            height: number;
         };
     };
     responses: never;
@@ -5155,6 +5197,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthUser"];
                 };
+            };
+        };
+    };
+    ItemImagesController_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedItemImage"];
+                };
+            };
+        };
+    };
+    ItemImagesController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                size: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
