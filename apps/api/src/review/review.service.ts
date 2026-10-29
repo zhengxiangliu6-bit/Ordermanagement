@@ -1,3 +1,4 @@
+import { orderLineImageInclude, presentOrderLineImages } from '../orders/order-line-images';
 import {
   BadRequestException,
   ConflictException,
@@ -117,6 +118,11 @@ export class ReviewService {
       // M7 R3: enrich new_order records with prior order count for the
       // same customer (how many orders this person has placed before).
       if (type === 'new_order') {
+        const orders = await this.prisma.order.findMany({
+          where: { id: { in: records.flatMap((record) => record.subjectId ? [record.subjectId] : []) } },
+          select: { id: true, lines: { orderBy: { createdAt: 'asc' }, include: orderLineImageInclude } },
+        });
+        const orderLines = new Map(orders.map((order) => [order.id, order.lines.map(presentOrderLineImages)]));
         const enriched = await Promise.all(
           records.map(async (record) => {
             const payload = record.payload as { order?: { customer?: { email?: string; name?: string } } };
@@ -138,6 +144,7 @@ export class ReviewService {
             return {
               ...sanitizeShipmentPayload(record, viewerPermissions),
               priorOrderCount,
+              orderLines: record.subjectId ? orderLines.get(record.subjectId) : undefined,
             };
           }),
         );

@@ -1,3 +1,5 @@
+import { LineImagePreviews } from "../items/line-image-previews";
+import { ImagePreviewButton } from "../items/image-preview";
 import { useState } from "react";
 import { useRouteLoaderData } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +15,8 @@ interface StoreOption {
 }
 
 interface MappingQueueRow {
+  platformVariantImages?: string[];
+  platformProductImages?: string[];
   id: string;
   externalVariantId: string;
   externalTitle: string | null;
@@ -27,6 +31,7 @@ interface MappingQueueRow {
 interface VariantOption {
   id: string;
   itemCode: string;
+  images?: unknown;
   name: string;
   item: { id: string; name: string };
 }
@@ -43,13 +48,15 @@ function groupVariantsByItem(variants: VariantOption[]): Array<{ itemName: strin
 }
 
 interface MappedRow {
+  platformVariantImages?: string[];
+  platformProductImages?: string[];
   id: string;
   externalVariantId: string;
   externalTitle: string | null;
   listingTitle: string | null;
   externalSku: string | null;
   store: { id: string; displayName: string };
-  itemVariant: { itemCode: string; name: string; itemName: string } | null;
+  itemVariant: { itemCode: string; name: string; itemName: string; images?: unknown } | null;
 }
 
 export default function MappingPage() {
@@ -290,6 +297,7 @@ export default function MappingPage() {
                     <div className="text-xs text-slate-500">
                       {row.store.displayName} · {row.externalSku ?? t("mapping.noSku")}
                     </div>
+                    <LineImagePreviews line={{ ...row, variantImages: row.itemVariant?.images, variantImageSource: "current" }} name={row.listingTitle ?? row.externalVariantId} />
                     <div className="mt-1 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">
                       {t("mapping.internalItem")}:{" "}
                       {row.itemVariant
@@ -359,6 +367,7 @@ export default function MappingPage() {
                         ))}
                       </select>
                     </div>
+                    <ImagePreviewButton images={variants.data?.find((variant) => variant.id === picks[row.id])?.images} name={`${variants.data?.find((variant) => variant.id === picks[row.id])?.name ?? ""} · ${t("images.systemCurrent")}`} />
                     <button
                       type="button"
                       disabled={busy || !picks[row.id]}
@@ -395,6 +404,7 @@ export default function MappingPage() {
                       ? ` · ${Object.entries(row.optionValues).map(([k, v]) => `${k}: ${String(v)}`).join(" · ")}`
                       : ""}
                   </div>
+                  <LineImagePreviews line={row} name={row.listingTitle ?? row.externalVariantId} />
                   <div className="font-mono text-xs text-slate-400">{row.externalVariantId}</div>
                 </div>
                 <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
@@ -426,6 +436,7 @@ export default function MappingPage() {
                     ))}
                   </select>
                 </div>
+                <ImagePreviewButton images={variants.data?.find((variant) => variant.id === picks[row.id])?.images} name={`${variants.data?.find((variant) => variant.id === picks[row.id])?.name ?? ""} · ${t("images.systemCurrent")}`} />
                 {canManage ? (
                   <>
                     <button

@@ -7,6 +7,7 @@
  */
 
 export interface ExternalVariant {
+  images?: string[];
   externalVariantId: string;
   /** Platform-side variant name (e.g. Shopify variant title). */
   title?: string | null;
@@ -15,6 +16,7 @@ export interface ExternalVariant {
 }
 
 export interface ExternalListing {
+  images?: string[];
   externalListingId: string;
   status: string;
   title: string;

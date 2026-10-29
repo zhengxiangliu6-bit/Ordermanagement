@@ -33,6 +33,7 @@ export const SHOPIFY_REQUIRED_SCOPES = [
 ] as const;
 
 interface ShopifyVariant {
+  image?: { url: string } | null;
   id: string;
   title?: string | null;
   sku?: string | null;
@@ -40,6 +41,7 @@ interface ShopifyVariant {
 }
 
 interface ShopifyProduct {
+  images?: { nodes?: { url: string }[] | null } | null;
   id: string;
   title: string;
   status?: string | null;
@@ -88,12 +90,14 @@ interface ShopifyOrder {
 /** Product → ExternalListing (variants come as a connection). */
 export function normalizeShopifyProduct(product: ShopifyProduct): ExternalListing {
   return {
+    images: product.images?.nodes?.map((image) => image.url) ?? [],
     externalListingId: product.id,
     status: (product.status ?? 'unknown').toLowerCase(),
     title: product.title,
     description: product.descriptionHtml ?? undefined,
     sourceUpdatedAt: product.updatedAt,
     variants: (product.variants?.nodes ?? []).map((variant) => ({
+      images: variant.image?.url ? [variant.image.url] : [],
       externalVariantId: variant.id,
       title: variant.title ?? null,
       // Shopify allows variants without a SKU; undefined keeps the column

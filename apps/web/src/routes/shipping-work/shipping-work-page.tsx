@@ -1,3 +1,5 @@
+import { LineImagePreviews, type LineImageData } from "../items/line-image-previews";
+import { ImagePreviewButton } from "../items/image-preview";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -9,7 +11,7 @@ import { useRouteLoaderData } from "react-router";
 import type { rootLoader } from "../../layouts/root-loader";
 import { parseNoteBody } from "../orders/note-display";
 
-interface WorkLine {
+interface WorkLine extends LineImageData {
   id: string;
   title: string | null;
   quantity: number;
@@ -30,7 +32,7 @@ interface WorkOrder {
     title: string;
     quantity: number;
     note: string | null;
-    itemVariant?: { id: string; itemCode: string; name: string } | null;
+    itemVariant?: { id: string; itemCode: string; name: string; images?: unknown } | null;
   }>;
   notes?: Array<{ body: string; createdAt: string }>;
   shipments?: Array<{
@@ -68,6 +70,7 @@ interface VariantOption {
   itemCode: string;
   name: string;
   nameEn?: string | null;
+  images?: unknown;
   item: { id: string; name: string; nameEn?: string | null };
 }
 
@@ -570,7 +573,7 @@ function WorkCard({
           <ul className="mt-1 space-y-0.5">
             {order.lines.map((line) => (
               <li key={line.id} className="flex justify-between gap-3">
-                <span className="truncate">{line.title ?? "—"}</span>
+                <div className="min-w-0 space-y-1"><span>{line.title ?? "—"}</span><LineImagePreviews line={line} name={line.title ?? line.itemVariant?.name ?? ""} /></div>
                 <span className="font-mono text-slate-500">× {line.quantity}</span>
               </li>
             ))}
@@ -582,6 +585,7 @@ function WorkCard({
                 {(order.addOns ?? []).map((addOn) => (
                   <li key={addOn.id} className="flex items-center justify-between gap-2">
                     <span>
+                      <ImagePreviewButton images={addOn.itemVariant?.images} name={`${addOn.title} · ${t("images.systemCurrent")}`} />
                       {addOn.title} × {addOn.quantity}
                       {addOn.itemVariant ? (
                         <span className="ml-1 font-mono text-slate-400">
@@ -638,6 +642,7 @@ function WorkCard({
                     ));
                   })()}
                 </select>
+                <LineImagePreviews line={{ variantImages: variants.find((variant) => variant.id === addOnVariantId)?.images, variantImageSource: "current" }} name={variants.find((variant) => variant.id === addOnVariantId)?.name ?? ""} />
                 <div className="flex gap-2">
                   <input
                     type="number"
@@ -949,13 +954,13 @@ function WorkCard({
             <ul className="space-y-0.5 text-xs text-slate-600">
               {(order.lines ?? []).map((line) => (
                 <li key={line.id} className="flex justify-between gap-3">
-                  <span>{line.title ?? "—"}</span>
+                  <div className="space-y-1"><span>{line.title ?? "—"}</span><LineImagePreviews line={line} name={line.title ?? line.itemVariant?.name ?? ""} /></div>
                   <span className="font-mono">× {line.quantity}</span>
                 </li>
               ))}
               {(order.addOns ?? []).map((addOn) => (
                 <li key={addOn.id} className="flex justify-between gap-3 text-slate-500">
-                  <span>{t("work.addOns")}: {addOn.title}</span>
+                  <div className="flex items-center gap-2"><ImagePreviewButton images={addOn.itemVariant?.images} name={`${addOn.title} · ${t("images.systemCurrent")}`} /><span>{t("work.addOns")}: {addOn.title}</span></div>
                   <span className="font-mono">× {addOn.quantity}</span>
                 </li>
               ))}
@@ -1124,13 +1129,13 @@ function WorkCard({
             <ul className="space-y-0.5 text-xs text-slate-600">
               {(order.lines ?? []).map((line) => (
                 <li key={line.id} className="flex justify-between gap-3">
-                  <span>{line.title ?? "—"}</span>
+                  <div className="space-y-1"><span>{line.title ?? "—"}</span><LineImagePreviews line={line} name={line.title ?? line.itemVariant?.name ?? ""} /></div>
                   <span className="font-mono">× {line.quantity}</span>
                 </li>
               ))}
               {(order.addOns ?? []).map((addOn) => (
                 <li key={addOn.id} className="flex justify-between gap-3 text-slate-500">
-                  <span>{t("work.addOns")}: {addOn.title}</span>
+                  <div className="flex items-center gap-2"><ImagePreviewButton images={addOn.itemVariant?.images} name={`${addOn.title} · ${t("images.systemCurrent")}`} /><span>{t("work.addOns")}: {addOn.title}</span></div>
                   <span className="font-mono">× {addOn.quantity}</span>
                 </li>
               ))}

@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
-import { RequirePermissions } from '../rbac/require-permissions.decorator';
+import { RequireAnyPermissions } from '../rbac/require-permissions.decorator';
 import { ItemsService } from './items.service';
 
 class SearchVariantsQueryDto {
@@ -18,7 +18,7 @@ export class ItemVariantsController {
   constructor(private readonly items: ItemsService) {}
 
   @Get()
-  @RequirePermissions('items:read')
+  @RequireAnyPermissions('items:read', 'mapping:read', 'orders:review', 'shipping:weigh')
   @ApiOperation({
     summary: 'Search active item variants (for pickers); matches code, name, and item name.',
   })

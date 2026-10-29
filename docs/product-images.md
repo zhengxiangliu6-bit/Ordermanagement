@@ -117,3 +117,43 @@ New files:
 - `apps/web/src/routes/inventory/inventory-item-detail-page.spec.tsx`
 - `apps/web/src/routes/inventory/warehouse-stock.ts`
 - `apps/web/src/routes/items/items-page.spec.tsx`
+
+
+## Fulfillment, review and mapping image previews
+
+Added previews to 待发货, 待抽检 (including their confirmation dialogs), 未发货订单审核 and 商品映射. The existing shared viewer supports multiple images and shows no variant preview when that variant has no images. Mapping shows platform product, platform variant and system variant images as separate sources, including the selected variant before resolving/remapping. Packing add-ons also show their own current images.
+
+Order line image sources are projected on the API using linked content-version snapshots. A historical snapshot is authoritative even if its variant has no image; current catalog photos are never silently substituted. Only legacy lines without a snapshot use current photos, labeled accordingly. New-order review fetches authoritative order lines in one batch rather than requesting one order per card. Full snapshot documents are not sent to the browser for these previews. Snapshot URLs preserve their recorded references; third-party image bytes are not archived locally and may become unavailable. Uploaded system images remain content-addressed local files.
+
+Shopify product sync now requests up to 20 product images and the variant image, bounded to 1600 pixels per dimension, and stores image links in the existing listing JSON snapshots. Shopify CDN thumbnails request 320-pixel bounds. Other external hosts remain unchanged rather than guessing a provider-specific resize API. Existing image-less historical snapshots are not backfilled with current platform photos.
+
+Deployment: rebuild/restart API, web and Relay Worker together, then run the store's normal synchronization to populate platform images for current listings. No migration or database backfill is required. No live Shopify account was accessed during validation. Frontend workflow tests, image projection/service tests, Shopify adapter tests and Relay tests use fixtures/mocks; image endpoint tests use real local encoding/storage/HTTP. Full API compilation and DB-backed validation remain blocked by the onboarding environment's ungenerated Prisma client: its engine/checksum download from binaries.prisma.sh is denied (403). Checksums/TLS were not disabled; this change does not solve that environment prerequisite.
+
+Files changed in this follow-up:
+
+| Status | File |
+| --- | --- |
+| Modified | `apps/api/src/item-images/item-images.controller.ts` |
+| Modified | `apps/api/src/items/item-variants.controller.ts` |
+| Modified | `apps/api/src/items/items.service.ts` |
+| Modified | `apps/api/src/mapping/mapping.service.ts` |
+| Modified | `apps/api/src/platforms/platform-adapter.ts` |
+| Modified | `apps/api/src/platforms/relay-shopify.adapter.spec.ts` |
+| Modified | `apps/api/src/platforms/relay-shopify.adapter.ts` |
+| Modified | `apps/api/src/review/review.service.ts` |
+| Modified | `apps/api/src/shipping/shipping-work.service.ts` |
+| Modified | `apps/api/src/sync/sync.service.ts` |
+| Modified | `apps/relay-worker/src/shopify/commands.ts` |
+| Modified | `apps/web/src/i18n/locales/en.ts` |
+| Modified | `apps/web/src/i18n/locales/zh.ts` |
+| Modified | `apps/web/src/routes/items/image-sources.ts` |
+| Modified | `apps/web/src/routes/mapping/mapping-page.tsx` |
+| Modified | `apps/web/src/routes/review/new-order-card.tsx` |
+| Modified | `apps/web/src/routes/shipping-work/shipping-work-page.tsx` |
+| New | `apps/api/src/orders/order-line-images.spec.ts` |
+| New | `apps/api/src/orders/order-line-images.ts` |
+| New | `apps/api/src/orders/workflow-images.spec.ts` |
+| New | `apps/web/src/routes/items/image-sources.spec.ts` |
+| New | `apps/web/src/routes/items/line-image-previews.tsx` |
+| New | `apps/web/src/routes/items/workflow-image-previews.spec.tsx` |
+| Modified | `docs/product-images.md` |

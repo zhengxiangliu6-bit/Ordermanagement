@@ -72,14 +72,15 @@ describe('normalizeShopifyProduct', () => {
   it('maps a product with its variant connection and tolerates null SKUs', () => {
     const listing = normalizeShopifyProduct(PRODUCT_FIXTURE);
     expect(listing).toEqual({
+      images: [],
       externalListingId: 'gid://shopify/Product/801',
       status: 'active',
       title: 'The Minimal Snowboard',
       description: '<p>Minimal.</p>',
       sourceUpdatedAt: '2026-10-11T08:00:00Z',
       variants: [
-        { externalVariantId: 'gid://shopify/ProductVariant/9001', title: 'Default', externalSku: 'SNO-001', optionValues: { Size: '154' } },
-        { externalVariantId: 'gid://shopify/ProductVariant/9002', title: 'No SKU variant', externalSku: undefined, optionValues: {} },
+        { images: [], externalVariantId: 'gid://shopify/ProductVariant/9001', title: 'Default', externalSku: 'SNO-001', optionValues: { Size: '154' } },
+        { images: [], externalVariantId: 'gid://shopify/ProductVariant/9002', title: 'No SKU variant', externalSku: undefined, optionValues: {} },
       ],
     });
   });
@@ -172,4 +173,11 @@ describe('RelayShopifyAdapter', () => {
     expect(SHOPIFY_REQUIRED_SCOPES).toContain('read_orders');
     expect(SHOPIFY_REQUIRED_SCOPES).toContain('write_fulfillments');
   });
+});
+
+it('keeps Shopify product images and each variant image separate', () => {
+  const normalized = normalizeShopifyProduct({ ...PRODUCT_FIXTURE, images: { nodes: [{ url: 'https://cdn.example.com/product.jpg' }] }, variants: { nodes: [{ ...PRODUCT_FIXTURE.variants.nodes[0], image: { url: 'https://cdn.example.com/variant.jpg' } }, PRODUCT_FIXTURE.variants.nodes[1]] } });
+  expect(normalized.images).toEqual(['https://cdn.example.com/product.jpg']);
+  expect(normalized.variants[0].images).toEqual(['https://cdn.example.com/variant.jpg']);
+  expect(normalized.variants[1].images).toEqual([]);
 });

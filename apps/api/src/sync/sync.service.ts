@@ -27,11 +27,13 @@ function listingPayload(listing: ExternalListing) {
     status: listing.status,
     title: listing.title,
     description: listing.description ?? null,
+    images: listing.images ?? [],
     variants: listing.variants.map((variant) => ({
       externalVariantId: variant.externalVariantId,
       title: variant.title ?? null,
       externalSku: variant.externalSku ?? null,
       optionValues: variant.optionValues ?? null,
+      images: variant.images ?? [],
     })),
     sourceUpdatedAt: listing.sourceUpdatedAt,
   };
@@ -215,6 +217,7 @@ export class SyncService {
             status: listing.status,
             title: listing.title,
             description: listing.description ?? null,
+            images: listing.images ?? [],
             variants: listing.variants,
             sourceUpdatedAt: listing.sourceUpdatedAt,
           } as unknown as Prisma.InputJsonValue,

@@ -1,3 +1,4 @@
+import { platformImages } from '../orders/order-line-images';
 import {
   ConflictException,
   Injectable,
@@ -183,6 +184,7 @@ export class MappingService {
         ...row,
         // The listing title lives in the content-version snapshot; surface
         // it so mapping decisions do not require SKU archaeology.
+        ...platformImages(row.listing.currentVersion?.snapshot, row.externalVariantId),
         listingTitle:
           ((row.listing.currentVersion?.snapshot ?? {}) as { title?: string | null }).title ??
           null,
@@ -221,6 +223,7 @@ export class MappingService {
             id: true,
             itemCode: true,
             name: true,
+            images: true,
             item: { select: { id: true, name: true } },
           },
         },
@@ -232,12 +235,14 @@ export class MappingService {
         externalVariantId: row.externalVariantId,
         externalTitle: row.externalTitle,
         externalSku: row.externalSku,
+        ...platformImages(row.listing.currentVersion?.snapshot, row.externalVariantId),
         listingTitle:
           ((row.listing.currentVersion?.snapshot ?? {}) as { title?: string | null }).title ??
           null,
         store: row.listing.store,
         itemVariant: row.itemVariant
           ? {
+              images: row.itemVariant.images,
               itemCode: row.itemVariant.itemCode,
               name: row.itemVariant.name,
               itemName: row.itemVariant.item.name,

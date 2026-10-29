@@ -52,8 +52,9 @@ export const PRODUCTS_QUERY = /* GraphQL */ `
     products(first: $first, after: $after) {
       nodes {
         id title status handle updatedAt descriptionHtml
+        images(first: 20) { nodes { url(transform: { maxWidth: 1600, maxHeight: 1600 }) } }
         variants(first: 100) {
-          nodes { id title sku selectedOptions { name value } }
+          nodes { id title sku image { url(transform: { maxWidth: 1600, maxHeight: 1600 }) } selectedOptions { name value } }
         }
       }
       pageInfo { hasNextPage endCursor }

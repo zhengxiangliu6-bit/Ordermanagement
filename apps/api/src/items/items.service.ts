@@ -66,6 +66,7 @@ export class ItemsService {
         id: true,
         itemCode: true,
         name: true,
+        images: true,
         item: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },

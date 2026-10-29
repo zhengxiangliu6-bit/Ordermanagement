@@ -65,6 +65,8 @@ export class ItemImagesController {
     'orders:review',
     'mapping:read',
     'shipping:read',
+    'shipping:weigh',
+    'shipping:inspect',
     'inventory:read',
     'inventory:china:read',
     'inventory:canada:read',

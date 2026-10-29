@@ -1,3 +1,4 @@
+import { LineImagePreviews, type LineImageData } from "../items/line-image-previews";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -38,6 +39,7 @@ export interface NewOrderRecord {
       sourceUpdatedAt?: string;
     };
   } | null;
+  orderLines?: Array<LineImageData & { id: string; title: string | null; quantity: number }>;
   createdAt: string;
 }
 
@@ -344,13 +346,13 @@ export function NewOrderReviewCard({
             ) : null}
           </div>
           <ul className="mt-0.5 space-y-0.5">
-            {(order.lines ?? []).map((line, i) => (
-              <li key={i} className="flex items-baseline gap-1.5">
-                <span className="text-[13px]">{line.title}</span>
+            {(record.orderLines ?? order.lines ?? []).map((line, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <div className="space-y-1"><span className="text-[13px]">{line.title}</span><LineImagePreviews line={line as LineImageData} name={line.title ?? ""} /></div>
                 <span className="font-mono text-xs text-slate-500">×{line.quantity}</span>
               </li>
             ))}
-            {(order.lines ?? []).length === 0 ? (
+            {(record.orderLines ?? order.lines ?? []).length === 0 ? (
               <li className="text-xs text-slate-400">—</li>
             ) : null}
           </ul>
