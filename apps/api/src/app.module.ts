@@ -1,3 +1,4 @@
+import { EtsyOAuthModule } from './etsy/etsy-oauth.module';
 import { ItemImagesModule } from './item-images/item-images.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -35,6 +36,7 @@ import { InventoryModule } from './inventory/inventory.module';
     OrdersModule,
     ReviewModule,
     StoresModule,
+    EtsyOAuthModule,
     SyncModule,
     UsersModule,
     CategoriesModule,
