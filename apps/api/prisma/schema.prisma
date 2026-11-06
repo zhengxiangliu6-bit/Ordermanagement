@@ -142,6 +142,8 @@ model Store {
 
   listings Listing[]
   orders   Order[]
+  etsyOAuthPendings EtsyOAuthPending[]
+  etsyCredential EtsyCredential?
 
   @@index([platform])
 }
@@ -829,4 +831,27 @@ model ReviewRecord {
 
   @@index([type, status])
   @@index([storeId, status])
+}
+
+// Etsy OAuth authorization state and encrypted credentials live ONLY in the
+// private API database. Never store secrets in Store.settings (returned to UI).
+model EtsyOAuthPending {
+  stateHash      String   @id
+  storeId        String   @db.Uuid
+  verifierCipher String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@index([storeId])
+  @@index([expiresAt])
+}
+
+model EtsyCredential {
+  storeId           String   @id @db.Uuid
+  accessTokenCipher String
+  refreshTokenCipher String
+  accessExpiresAt   DateTime
+  scopes            String
+  updatedAt         DateTime @updatedAt
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
